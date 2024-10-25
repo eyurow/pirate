@@ -403,6 +403,55 @@ class World:
 
     
 if __name__ == '__main__':
+    import json
+    import pygame
+    world = World((200,125), 2)
+    
+    with open('land1.json', 'r') as f:
+        world.LAND = np.array(json.load(f), dtype = int)
+    
+    world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 50, direction = -.2, movement = 0))
+    world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 30, direction = -np.pi/2))
+    world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 50, direction = -3*np.pi/4 - .143))
+    
+    world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 40, direction = np.pi/2 + .156))
+    world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 70, -np.pi + .198765))
+    world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 20, direction = np.pi/2-.24))
+    world.WIND_SEEDS.append(WindGroup((20,75), (5, 20), 30, .254))
+    
+    world.WIND_SEEDS.append(WindGroup((75,45), (50, 30), 7, 0))
+    
+    
+    times = {
+        'Prop Winds': 0,
+        'Prop Currents': 0,
+        'Apply Loss': 0, #AND Land
+        'Set Step': 0
+        }
+    clock = pygame.time.Clock()
+    
+    count = 0
+    while count <= 2000:
+        world.WIND_SEEDS[-1].direction += np.pi/30
+        world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction)
+        world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction)
+    
+        world.propogate_winds()
+        times['Prop Winds'] += clock.tick_busy_loop() / 1000
+        world.set_thetas() # set_thetas with world1
+        
+        #world.propogate_currents()
+        world.propogate_currents_ind_arrays()
+        times['Prop Currents'] += clock.tick_busy_loop() / 1000
+        world.impact_land()
+        world.apply_energy_loss()
+        times['Apply Loss'] += clock.tick_busy_loop() / 1000
+        world.set_sim_step()
+        times['Set Step'] += clock.tick_busy_loop() / 1000
+        
+        count += 1
+    
+    '''
     world = World((100,60), 2)
     world.LAND[...] = [[3,3],[3,4]]
     world.CURRENTS[3,5,0] = 0
@@ -428,54 +477,7 @@ if __name__ == '__main__':
     
     # print(world.CURRENTS[:,:,0].T)
     # print(world.CURRENTS[:,:,1].T)
-
-
-# arr = np.zeros((8,8,2))
-# arr[5,5,0] = 10
-# shift = np.zeros(arr.shape)
-# shift = shift_array(arr, -1, True, np.nan)
-# shift2 = shift_array(shift, 1, False, np.nan)
-
-    
-# num = 1
-# y = False
-# fill = np.nan
-# if not y:
-#     if num > 0:
-#         shift[:num, :] = fill
-#         shift[num:, :] = shift[:-num, :]
-#     elif num < 0:
-#         shift[num:, :] = fill
-#         shift[:num, :] = shift[-num:, :]
-
-# else:
-#     if num > 0:
-#         shift[:, :num] = fill
-#         shift[:, num:] = shift[:, :-num]
-#     elif num < 0:
-#         shift[:, num:] = fill
-#         shift[:, :num] = shift[:, -num:]
-    #world.WIND_SEEDS.append(WindGroup((3,3), 0, (6, 2), 10))
-#world.sim()
-#world.set_sim_step()
-#world.sim()
-
-
-
-
-
-
-
-
-
-#### Negative Flip
-# shift[shift[:,:,0]<0] += 2*np.pi
-
-
-# mask = arr[:,:,1] > 0 & (np.absolute(arr[:,:,0] - ref_angle) <= ibt + cbt)
-### Get array of tuple-indices where condition is met
-#mask = np.where((arr[:,:,1] > 0)&(arr[:,:,0] - np.pi/8 < 0)&(arr[:,:,0] + np.pi/8 > 0))
-# nz = np.nonzero((arr[:,:,1] > 0)&(arr[:,:,0] - np.pi/8 < left_corner_bound)&(arr[:,:,0] + np.pi/8 > right_corner_bound))
+    '''
 
 
 
