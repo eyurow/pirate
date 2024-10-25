@@ -8,7 +8,7 @@ import pygame
 import pygame.surfarray as sa
 # pygame.font.init()
 
-np.set_printoptions(precision = 2, threshold = 1600, suppress = True)
+np.set_printoptions(precision = 3, threshold = 1600, suppress = True)
 
 
 
@@ -197,8 +197,6 @@ def run():
     
     with open('land1.json', 'r') as f:
         world.LAND = np.array(json.load(f), dtype = int)
-        # world.LAND[...] = np.array([[52,52,53,53,50,51,52,53,54,55,50,51,52,53,54,55],#,50,51,52,53,54,55,50,51,52,53,54,55,50,51,52,53,54,55,50,51,52,53,54,55],
-        #                    [29,28,29,28,30,30,30,30,30,30,31,31,31,31,31,31]])#,32, 32, 32, 32, 32, 32,33, 33, 33, 33, 33, 33,34, 34, 34, 34, 34, 34,35, 35, 35, 35, 35, 35]])
         
     world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 50, direction = -.2, movement = 0))
     world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 30, direction = -np.pi/2))
@@ -285,6 +283,14 @@ def run():
         world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction)
         world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction)
         #times['Key'] += clock.tick_busy_loop() / 1000
+
+
+
+        ### Prop Winds and Set Current Thetas
+        world.old_propogate_winds()
+        world.set_current_thetas()
+        
+
 
         ### HANDLE INPUTS ###
         #inp = wait_for_input(mouse_movement)
@@ -412,30 +418,31 @@ def run():
 
             
         ### SIMULATE WORLD ###
-        world.propogate_winds()
+        #world.propogate_winds()
         #times['Prop Winds'] += clock.tick_busy_loop() / 1000
-        world.set_thetas() # set_thetas with world1
+        #world.set_thetas() # set_thetas with world1
         
         #world.propogate_currents()
         world.propogate_currents_ind_arrays()
+        world.set_currents()
         world.impact_land()
         #times['Prop Currents'] += clock.tick_busy_loop() / 1000
         world.apply_energy_loss()
         #times['Apply Loss'] += clock.tick_busy_loop() / 1000
-        world.set_sim_step()
+        #world.set_sim_step()
         #times['Set Step'] += clock.tick_busy_loop() / 1000
 
         
         count += 1
         
-        # if count == 200:
-        #     draw = 'mod'
-        # if count == 400:
-        #     draw = 'np'
-        # if count == 600:
-        #     run = False
-        #     pygame.display.quit()
-        #     break
+        if count == 200:
+            draw = 'mod'
+        if count == 400:
+            draw = 'np'
+        if count == 600:
+            run = False
+            pygame.display.quit()
+            break
     
     return count, world, times
             
