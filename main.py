@@ -198,16 +198,16 @@ def run():
     with open('land1.json', 'r') as f:
         world.LAND = np.array(json.load(f), dtype = int)
         
-    world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 50, direction = -.2, movement = 0))
-    world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 30, direction = -np.pi/2))
-    world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 50, direction = -3*np.pi/4 - .143))
+    world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 10, direction = -.2, movement = 0))
+    world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 20, direction = -np.pi/2))
+    world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 10, direction = -3*np.pi/4 - .143))
     
-    world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 40, direction = np.pi/2 + .156))
-    world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 70, -np.pi + .198765))
-    world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 20, direction = np.pi/2-.24))
+    world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 10, direction = np.pi/2 + .156))
+    world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 10, -np.pi + .198765))
+    world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 10, direction = np.pi/2-.24))
     world.WIND_SEEDS.append(WindGroup((20,75), (5, 20), 30, .254))
     
-    world.WIND_SEEDS.append(WindGroup((75,45), (50, 30), 7, 0))
+    #world.WIND_SEEDS.append(WindGroup((75,45), (50, 30), 5, 0))
 
     count = 1
     clock = pygame.time.Clock()
@@ -279,15 +279,27 @@ def run():
     
     
     while run:
-        world.WIND_SEEDS[-1].direction += np.pi/30
-        world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction)
-        world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction)
+        #world.WIND_SEEDS[-1].direction += np.pi/30
+        #world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction) * 5
+        #world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction) * 5
         #times['Key'] += clock.tick_busy_loop() / 1000
 
 
 
         ### Prop Winds and Set Current Thetas
+        '''
+        # OLD WINDS
         world.old_propogate_winds()
+        world.set_current_thetas()
+        '''
+        
+        world.apply_wind_generators()
+        world.set_wind_thetas()
+        world.propogate_array(array = 'winds')
+        world.set_winds()
+        #times['Prop Winds'] += clock.tick_busy_loop() / 1000
+        
+        world.apply_winds_to_currents()
         world.set_current_thetas()
         
 
@@ -422,11 +434,11 @@ def run():
         #times['Prop Winds'] += clock.tick_busy_loop() / 1000
         #world.set_thetas() # set_thetas with world1
         
-        #world.propogate_currents()
-        world.propogate_currents_ind_arrays()
+        
+        world.propogate_array(array = 'currents')
         world.set_currents()
-        world.impact_land()
         #times['Prop Currents'] += clock.tick_busy_loop() / 1000
+        world.impact_land()
         world.apply_energy_loss()
         #times['Apply Loss'] += clock.tick_busy_loop() / 1000
         #world.set_sim_step()

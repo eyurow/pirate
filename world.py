@@ -76,8 +76,8 @@ class WindGroup:
         
         if direction != None:
             self.direction = direction
-            self.x = np.cos(direction)
-            self.y = np.sin(direction)
+            self.x = np.cos(direction) * strength
+            self.y = np.sin(direction) * strength
         elif xy or (x and y):
             if xy:
                 x = xy[0]
@@ -153,168 +153,22 @@ class World:
         # self.THETA_MASK = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         
         self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .03
-        self.WIND_LOSS_FACTOR = .03
+        self.CURRENT_LOSS_FACTOR = .1
+        self.WIND_LOSS_FACTOR = .1
         self.INNER_BOUND_THETA = np.pi/6 # angle from vector angle whicn forms bound of its impact arc
         self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
         
         self.count = 1
-    
-    
-    @property
-    def IBT(self):
-        return self.INNER_BOUND_THETA
-    @property
-    def CBT(self):
-        return self.CORNER_BOUND_THETA
-    
-    
-
-
-
-    def old_propogate_winds(self):
-        for wind in self.WIND_SEEDS:
-            strength = wind.strength * self.WIND_STRESS_FACTOR # get strength of wind on sea
-            x = wind.x * strength
-            y = wind.y * strength
-                            
-            if isinstance(wind, WindGroup):
-                wind.propogate_wind()
-
-                #self.WINDS[tuple(wind.index.astype(int))] = wind.strength
-                
-                self.CURRENTS[:,:,0][tuple(wind.index.astype(int))] += x
-                self.CURRENTS[:,:,1][tuple(wind.index.astype(int))] += y
-            
-            elif isinstance(wind, Wind):
-                self.CURRENTS[wind.location][0] += x
-                self.CURRENTS[wind.location][1] += y
-
-        
-    def apply_wind_generators(self):
-        # Apply Wind Generators to WINDS
-        for wind in self.WIND_SEEDS:
-            self.WINDS[(wind.index[0], wind.index[1], 0)] += wind.x
-            self.WINDS[(wind.index[0], wind.index[1], 1)] += wind.y
-
-    def set_winds(self):
-        self.WINDS[...] = self.PROP_ARRAY[...]
-        self.PROP_ARRAY[...] = 0
-            
-    def set_wind_thetas(self):
-        self.THETAS[:,:,0] = np.arctan2(self.WINDS[:,:,1], self.WINDS[:,:,0]) # calc thetas from x, y coords
-        self.THETAS[:,:,1] = np.sqrt(self.WINDS[:,:,1]**2 + self.WINDS[:,:,0]**2) # calc strength using pythag
-        #np.copyto(self.THETA_MASK, self.THETAS)        
-    
-    def propogate_winds(self):
-        for ref_angle in [np.pi/2, np.pi/4, 0, -np.pi/4, -np.pi/2, -3*np.pi/4, np.pi, 3*np.pi/4]: # Flip positive thetas at -3*np.pi/4, Flip negative thetas at np.pi and 3*np.pi/4
-            if ref_angle == -3*np.pi/4:
-                #mask = self.THETAS[...]
-                #self.THETA_MASK[self.THETA_MASK[:,:,0] < 0, 0] += 2*np.pi
-                self.THETAS[self.THETAS[:,:,0] < 0, 0] += 2*np.pi
-                ref_angle = 5*np.pi/4
-            if ref_angle in [np.pi/2, 0, -np.pi/2, np.pi]:
-                rbound = ref_angle - (np.pi/4 - self.CORNER_BOUND_THETA)
-                lbound = ref_angle + (np.pi/4 - self.CORNER_BOUND_THETA)
-            else:
-                rbound = ref_angle - self.CORNER_BOUND_THETA
-                lbound = ref_angle + self.CORNER_BOUND_THETA
-            
-            # indices = np.where((self.THETA_MASK[:,:,0] >= rbound - self.INNER_BOUND_THETA)&
-            #                    (self.THETA_MASK[:,:,0] <= lbound + self.INNER_BOUND_THETA))
-            indices = np.where((self.THETAS[:,:,0] >= rbound - self.INNER_BOUND_THETA)&
-                                (self.THETAS[:,:,0] <= lbound + self.INNER_BOUND_THETA))
-
-            index_steps = self.get_prop_index_steps(ref_angle)
-            keep = np.where((indices[0] + index_steps[0] < self.SIZE[0])&  # indices in world bounds
-                            (indices[0] + index_steps[0] >= 0)&
-                            (indices[1] + index_steps[1] < self.SIZE[1])&
-                            (indices[1] + index_steps[1] >= 0))
-            prop_indices = (indices[0][keep] + index_steps[0], indices[1][keep] + index_steps[1]) # indices to propogate to within array
-            
-            impact = self.calc_impact_ind_arrays(self.THETA_MASK[(indices[0][keep], indices[1][keep], 0)], ref_angle, lbound, rbound)
-            
-            self.PROP_ARRAY[(prop_indices[0],prop_indices[1],0)] += self.WINDS[(indices[0][keep],indices[1][keep],0)] * impact
-            self.PROP_ARRAY[(prop_indices[0],prop_indices[1],1)] += self.WINDS[(indices[0][keep],indices[1][keep],1)] * impact
-
-
-    def set_currents(self):
-        self.CURRENTS[...] = self.PROP_ARRAY[...]
-        self.PROP_ARRAY[...] = 0                
-    
-    def set_current_thetas(self):
-        #self.THETAS = cartesian_to_theta(self.CURRENTS)
-        self.THETAS[:,:,0] = np.arctan2(self.CURRENTS[:,:,1], self.CURRENTS[:,:,0]) # calc thetas from x, y coords
-        self.THETAS[:,:,1] = np.sqrt(self.CURRENTS[:,:,1]**2 + self.CURRENTS[:,:,0]**2) # calc strength using pythag
-        #np.copyto(self.THETA_MASK, self.THETAS)
         
     
-
-    
-
-        
-    def apply_energy_loss(self):
-        # for wind in self.WIND_SEEDS:
-        #     if wind.duration > 0:
-        #         wind.strength = wind.strength * (1 - self.WIND_LOSS_FACTOR)
-        #self.PROP_CURRENTS = self.PROP_CURRENTS * (1 - self.CURRENT_LOSS_FACTOR) 
-        #self.PROP_ARRAY = self.PROP_ARRAY * (1 - self.CURRENT_LOSS_FACTOR) 
-        self.CURRENTS = self.CURRENTS * (1 - self.CURRENT_LOSS_FACTOR) 
-        
-        
-        
-
-
-    def propogate_currents_ind_arrays(self):
-        for ref_angle in [np.pi/2, np.pi/4, 0, -np.pi/4, -np.pi/2, -3*np.pi/4, np.pi, 3*np.pi/4]: # Flip positive thetas at -3*np.pi/4, Flip negative thetas at np.pi and 3*np.pi/4
-            if ref_angle == -3*np.pi/4:
-                #mask = self.THETAS[...]
-                #self.THETA_MASK[self.THETA_MASK[:,:,0] < 0, 0] += 2*np.pi
-                self.THETAS[self.THETAS[:,:,0] < 0, 0] += 2*np.pi
-                ref_angle = 5*np.pi/4
-            if ref_angle in [np.pi/2, 0, -np.pi/2, np.pi]:
-                rbound = ref_angle - (np.pi/4 - self.CORNER_BOUND_THETA)
-                lbound = ref_angle + (np.pi/4 - self.CORNER_BOUND_THETA)
-            else:
-                rbound = ref_angle - self.CORNER_BOUND_THETA
-                lbound = ref_angle + self.CORNER_BOUND_THETA
-            
-            # indices = np.where((self.THETA_MASK[:,:,0] >= rbound - self.INNER_BOUND_THETA)&
-            #                    (self.THETA_MASK[:,:,0] <= lbound + self.INNER_BOUND_THETA))
-            indices = np.where((self.THETAS[:,:,0] >= rbound - self.INNER_BOUND_THETA)&
-                               (self.THETAS[:,:,0] <= lbound + self.INNER_BOUND_THETA))
-
-            index_steps = self.get_prop_index_steps(ref_angle)
-            keep = np.where((indices[0] + index_steps[0] < self.SIZE[0])&  # indices in world bounds
-                            (indices[0] + index_steps[0] >= 0)&
-                            (indices[1] + index_steps[1] < self.SIZE[1])&
-                            (indices[1] + index_steps[1] >= 0))
-            prop_indices = (indices[0][keep] + index_steps[0], indices[1][keep] + index_steps[1]) # indices to propogate to within array
-            
-            # impact = self.calc_impact_ind_arrays(self.THETA_MASK[(indices[0][keep], indices[1][keep], 0)], ref_angle, lbound, rbound)
-            impact = self.calc_impact_ind_arrays(self.THETAS[(indices[0][keep], indices[1][keep], 0)], ref_angle, lbound, rbound)
-
-            
-            #self.PROP_CURRENTS[(prop_indices[0],prop_indices[1],0)] += self.CURRENTS[(indices[0][keep],indices[1][keep],0)] * impact
-            #self.PROP_CURRENTS[(prop_indices[0],prop_indices[1],1)] += self.CURRENTS[(indices[0][keep],indices[1][keep],1)] * impact
-            self.PROP_ARRAY[(prop_indices[0],prop_indices[1],0)] += self.CURRENTS[(indices[0][keep],indices[1][keep],0)] * impact
-            self.PROP_ARRAY[(prop_indices[0],prop_indices[1],1)] += self.CURRENTS[(indices[0][keep],indices[1][keep],1)] * impact
-            
-            
-    def calc_impact_ind_arrays(self, angles, ref_angle, lbound, rbound):
-        ### ONE CALC
-        impact = ( (2*self.INNER_BOUND_THETA) - 
-                      np.maximum(0, rbound - (angles - self.INNER_BOUND_THETA) ) - 
-                      np.maximum(0, (angles + self.INNER_BOUND_THETA) - lbound ) )  \
-                    / (2*self.INNER_BOUND_THETA)
-        
-        return impact
-    
-    
-    def impact_land(self):
-        #self.PROP_CURRENTS[self.LAND[0],self.LAND[1]] = 0 
-        self.CURRENTS[self.LAND[0],self.LAND[1]] = 0     
-    
+    def get_ref_angle_bounds(self, ref_angle):
+        if ref_angle in [np.pi/2, 0, -np.pi/2, np.pi]:
+            rbound = ref_angle - (np.pi/4 - self.CORNER_BOUND_THETA)
+            lbound = ref_angle + (np.pi/4 - self.CORNER_BOUND_THETA)
+        else:
+            rbound = ref_angle - self.CORNER_BOUND_THETA
+            lbound = ref_angle + self.CORNER_BOUND_THETA
+        return rbound, lbound
     
     def get_prop_index_steps(self, ref_angle):
         if ref_angle == np.pi/2:
@@ -333,32 +187,108 @@ class World:
             return (-1,0)
         elif ref_angle == 3*np.pi/4:
             return (-1,-1)
-        
-        
-        
     
-    def set_sim_step(self):
-        self.CURRENTS[...] = self.PROP_CURRENTS[...]
-        #self.THETAS = cartesian_to_theta(self.CURRENTS)
-        self.PROP_CURRENTS[...] = 0
+    def get_prop_indices(self, ref_angle, indices):
+        index_steps = self.get_prop_index_steps(ref_angle)
+        keep = np.where((indices[0] + index_steps[0] < self.SIZE[0])&  # indices in world bounds
+                        (indices[0] + index_steps[0] >= 0)&
+                        (indices[1] + index_steps[1] < self.SIZE[1])&
+                        (indices[1] + index_steps[1] >= 0))
+        prop_indices = (indices[0][keep] + index_steps[0], indices[1][keep] + index_steps[1]) # indices to propogate to within array
         
-        self.WINDS = np.zeros_like(self.WINDS)
+        return prop_indices, keep
+
+    def calc_impact_ind_arrays(self, angles, ref_angle, lbound, rbound):
+        ### ONE CALC
+        impact = ( (2*self.INNER_BOUND_THETA) - 
+                      np.maximum(0, rbound - (angles - self.INNER_BOUND_THETA) ) - 
+                      np.maximum(0, (angles + self.INNER_BOUND_THETA) - lbound ) )  \
+                    / (2*self.INNER_BOUND_THETA)
         
-        self.WIND_SEEDS = [x for x in self.WIND_SEEDS if not (isinstance(x, WindGroup) and (x.duration == 0 or x.strength < .1))]
+        return impact
+    
+
+    def old_propogate_winds(self):
+        for wind in self.WIND_SEEDS:
+            strength = wind.strength * self.WIND_STRESS_FACTOR # get strength of wind on sea
+            x = wind.x * strength
+            y = wind.y * strength
+                            
+            if isinstance(wind, WindGroup):
+                wind.propogate_wind()
+
+                #self.WINDS[tuple(wind.index.astype(int))] = wind.strength
+                
+                self.CURRENTS[:,:,0][tuple(wind.index.astype(int))] += x
+                self.CURRENTS[:,:,1][tuple(wind.index.astype(int))] += y
+            
+            elif isinstance(wind, Wind):
+                self.CURRENTS[wind.location][0] += x
+                self.CURRENTS[wind.location][1] += y
+        
+    def apply_wind_generators(self):
+        # Apply Wind Generators to WINDS
+        for wind in self.WIND_SEEDS:
+            self.WINDS[(wind.index[0], wind.index[1], 0)] += wind.x
+            self.WINDS[(wind.index[0], wind.index[1], 1)] += wind.y
+
+    def set_wind_thetas(self):
+        self.THETAS[:,:,0] = np.arctan2(self.WINDS[:,:,1], self.WINDS[:,:,0]) # calc thetas from x, y coords
+        self.THETAS[:,:,1] = np.sqrt(self.WINDS[:,:,1]**2 + self.WINDS[:,:,0]**2) # calc strength using pythag
+
+    def set_winds(self):
+        self.WINDS[...] = self.PROP_ARRAY[...]
+        self.PROP_ARRAY[...] = 0
             
     
-
+    def apply_winds_to_currents(self):
+        self.CURRENTS += self.WINDS * self.WIND_STRESS_FACTOR
     
-    
-
-    
+     
+    def set_current_thetas(self):
+        self.THETAS[:,:,0] = np.arctan2(self.CURRENTS[:,:,1], self.CURRENTS[:,:,0]) # calc thetas from x, y coords
+        self.THETAS[:,:,1] = np.sqrt(self.CURRENTS[:,:,1]**2 + self.CURRENTS[:,:,0]**2) # calc strength using pythag
+        
+    def set_currents(self):
+        self.CURRENTS[...] = self.PROP_ARRAY[...]
+        self.PROP_ARRAY[...] = 0    
         
     
-    def sim(self):
-        self.propogate_winds()
-        self.propogate_currents()
-        self.apply_energy_loss()
+    def propogate_array(self, array):
+        for ref_angle in [np.pi/2, np.pi/4, 0, -np.pi/4, -np.pi/2, -3*np.pi/4, np.pi, 3*np.pi/4]: # Flip positive thetas at -3*np.pi/4, Flip negative thetas at np.pi and 3*np.pi/4
+            if ref_angle == -3*np.pi/4:
+                self.THETAS[self.THETAS[:,:,0] < 0, 0] += 2*np.pi
+                ref_angle = 5*np.pi/4
+                
+            rbound, lbound = self.get_ref_angle_bounds(ref_angle)
+
+            indices = np.where((self.THETAS[:,:,0] >= rbound - self.INNER_BOUND_THETA)&
+                               (self.THETAS[:,:,0] <= lbound + self.INNER_BOUND_THETA))
+            prop_indices, keep = self.get_prop_indices(ref_angle, indices)
+            
+            impact = self.calc_impact_ind_arrays(self.THETAS[(indices[0][keep], indices[1][keep], 0)], ref_angle, lbound, rbound)
+            if array == 'winds':
+                self.PROP_ARRAY[(prop_indices[0],prop_indices[1],0)] += self.WINDS[(indices[0][keep],indices[1][keep],0)] * impact
+                self.PROP_ARRAY[(prop_indices[0],prop_indices[1],1)] += self.WINDS[(indices[0][keep],indices[1][keep],1)] * impact
+            elif array == 'currents':
+                self.PROP_ARRAY[(prop_indices[0],prop_indices[1],0)] += self.CURRENTS[(indices[0][keep],indices[1][keep],0)] * impact
+                self.PROP_ARRAY[(prop_indices[0],prop_indices[1],1)] += self.CURRENTS[(indices[0][keep],indices[1][keep],1)] * impact                
+
+        
+    def apply_energy_loss(self):
+        # for wind in self.WIND_SEEDS:
+        #     if wind.duration > 0:
+        #         wind.strength = wind.strength * (1 - self.WIND_LOSS_FACTOR)
+        self.CURRENTS = self.CURRENTS * (1 - self.CURRENT_LOSS_FACTOR)
+        self.WINDS = self.WINDS * (1 - self.WIND_LOSS_FACTOR)
+        
+    def impact_land(self):
+        #self.PROP_CURRENTS[self.LAND[0],self.LAND[1]] = 0 
+        self.CURRENTS[self.LAND[0],self.LAND[1]] = 0     
     
+    
+
+
 
 
     
@@ -398,13 +328,18 @@ if __name__ == '__main__':
         world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction)
         world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction)
         
-        world.old_propogate_winds()
+        world.apply_wind_generators()
+        world.set_wind_thetas()
+        world.propogate_array(array = 'winds')
+        world.set_winds()
         times['Prop Winds'] += clock.tick_busy_loop() / 1000
+        
+        world.apply_winds_to_currents()
         world.set_current_thetas()
         
         # Draw Here
         
-        world.propogate_currents_ind_arrays()
+        world.propogate_array(array = 'currents')
         world.set_currents()
         times['Prop Currents'] += clock.tick_busy_loop() / 1000
         world.impact_land()
@@ -412,6 +347,24 @@ if __name__ == '__main__':
         times['Apply Loss'] += clock.tick_busy_loop() / 1000
         
         count += 1
+        
+        '''
+        # OLD WINDS
+        world.old_propogate_winds()
+        times['Prop Winds'] += clock.tick_busy_loop() / 1000
+        world.set_current_thetas()
+        
+        # Draw Here
+        
+        world.propogate_array(array = 'currents')
+        world.set_currents()
+        times['Prop Currents'] += clock.tick_busy_loop() / 1000
+        world.impact_land()
+        world.apply_energy_loss()
+        times['Apply Loss'] += clock.tick_busy_loop() / 1000
+        
+        count += 1
+        '''
         
     
     
