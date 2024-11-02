@@ -131,26 +131,14 @@ def get_margin(outer_size, inner_size):
     return start, end
 
 def set_pixelarray(pa, world, width, height, cell_size, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y):
-    x_start = 0
-    x_end = 0
-    y_start = 0
-    y_end = 0
     if width > world.SIZE[0] * cell_size:
-        x_start, x_end = get_margin(width, world.SIZE[0] * cell_size)
+        start, end = get_margin(width, world.SIZE[0] * cell_size)
         pa[:start] = (0,0,0)
         pa[-end:] = (0,0,0)
         pa = pa[start:-end]
         start_pixel_x = start
         world_slicer_x = slice(0, world.SIZE[0])
-    if height > world.SIZE[1] * cell_size:
-        start, end = get_margin(height, world.SIZE[1] * cell_size)
-        pa[:, :start] = (0,0,0)
-        pa[:, -end:] = (0,0,0)
-        pa = pa[:, start:-end]
-        start_pixel_y = start
-        world_slicer_y = slice(0, world.SIZE[1])
-        
-    if width < world.SIZE[0] * cell_size:
+    elif width < world.SIZE[0] * cell_size:
         # get world slicer
         start, end = get_margin(world.SIZE[0], width // cell_size)
         world_slicer_x = slice(start, world.SIZE[0] - end)
@@ -161,7 +149,19 @@ def set_pixelarray(pa, world, width, height, cell_size, world_slicer_x, world_sl
             pa[-end:] = (0,0,0)
             pa = pa[start:-end]
             start_pixel_x = start
-    if height < world.SIZE[1] * cell_size:
+    elif width == world.SIZE[0] * cell_size:
+        start_pixel_x = 0
+        world_slicer_x = slice(0, world.SIZE[0])
+        
+    
+    if height > world.SIZE[1] * cell_size:
+        start, end = get_margin(height, world.SIZE[1] * cell_size)
+        pa[:, :start] = (0,0,0)
+        pa[:, -end:] = (0,0,0)
+        pa = pa[:, start:-end]
+        start_pixel_y = start
+        world_slicer_y = slice(0, world.SIZE[1])
+    elif height < world.SIZE[1] * cell_size:
         # get world slicer
         start, end = get_margin(world.SIZE[1], height // cell_size)
         world_slicer_y = slice(start, world.SIZE[1] - end)
@@ -172,6 +172,12 @@ def set_pixelarray(pa, world, width, height, cell_size, world_slicer_x, world_sl
             pa[:, -end:] = (0,0,0)
             pa = pa[:, start:-end]
             start_pixel_y = start
+    elif height == world.SIZE[1] * cell_size:
+        start_pixel_y = 0
+        world_slicer_y = slice(0, world.SIZE[1])
+    
+    print(pa.shape)
+    print(world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y)
     
     return world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y
     
@@ -191,23 +197,23 @@ def run():
     
     global WIDTH, HEIGHT, CELL_SIZE
     WINDOW = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE) #(WIDTH, HEIGHT))
-    world = World((200,125), 16) # 100,60
+    world = World((79,79), 16) # 100,60
     
     cell_size = CELL_SIZE #WIDTH // world.SIZE[0]
     
-    with open('land1.json', 'r') as f:
-        world.LAND = np.array(json.load(f), dtype = int)
+    #with open('sun_boundary_v1.json', 'r') as f:
+    #    world.LAND = np.array(json.load(f), dtype = int)
         
-    world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 10, direction = -.2, movement = 0))
-    world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 20, direction = -np.pi/2))
-    world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 10, direction = -3*np.pi/4 - .143))
+    # world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 30, direction = -.2, movement = 0))
+    # world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 20, direction = -np.pi/2))
+    # world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 40, direction = -3*np.pi/4 - .143))
     
-    world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 10, direction = np.pi/2 + .156))
-    world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 10, -np.pi + .198765))
-    world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 10, direction = np.pi/2-.24))
-    world.WIND_SEEDS.append(WindGroup((20,75), (5, 20), 30, .254))
+    # world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 40, direction = np.pi/2 + .156))
+    # world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 50, -np.pi + .198765))
+    # world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 30, direction = np.pi/2-.24))
+    # world.WIND_SEEDS.append(WindGroup((20,75), (5, 20), 30, .254))
     
-    #world.WIND_SEEDS.append(WindGroup((75,45), (50, 30), 5, 0))
+    # world.WIND_SEEDS.append(WindGroup((90,55), (20, 20), 5, 0))
 
     count = 1
     clock = pygame.time.Clock()
@@ -279,9 +285,9 @@ def run():
     
     
     while run:
-        #world.WIND_SEEDS[-1].direction += np.pi/30
-        #world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction) * 5
-        #world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction) * 5
+        # world.WIND_SEEDS[-1].direction += np.pi/30
+        # world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction) * 5
+        # world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction) * 5
         #times['Key'] += clock.tick_busy_loop() / 1000
 
 
@@ -294,12 +300,14 @@ def run():
         '''
         
         world.apply_wind_generators()
+        
         world.set_wind_thetas()
         world.propogate_array(array = 'winds')
         world.set_winds()
         #times['Prop Winds'] += clock.tick_busy_loop() / 1000
         
         world.apply_winds_to_currents()
+        world.impact_land()
         world.set_current_thetas()
         
 
@@ -319,6 +327,7 @@ def run():
         elif inp == 'resize':
             pa = sa.pixels3d(WINDOW)
             WIDTH, HEIGHT = pa.shape[0], pa.shape[1]
+            print(WIDTH, HEIGHT)
 
             ### NEW 
             # world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y = set_pixelarray(pa, world, WIDTH, HEIGHT, cell_size, 
@@ -423,38 +432,27 @@ def run():
             
         #times['Draw'] += clock.tick_busy_loop() / 1000
         
-        
         pygame.display.update()
         #times['Render'] += clock.tick_busy_loop() / 1000
-            
-
-            
+        
         ### SIMULATE WORLD ###
-        #world.propogate_winds()
-        #times['Prop Winds'] += clock.tick_busy_loop() / 1000
-        #world.set_thetas() # set_thetas with world1
-        
-        
         world.propogate_array(array = 'currents')
         world.set_currents()
         #times['Prop Currents'] += clock.tick_busy_loop() / 1000
-        world.impact_land()
+        # world.impact_land()
         world.apply_energy_loss()
         #times['Apply Loss'] += clock.tick_busy_loop() / 1000
-        #world.set_sim_step()
-        #times['Set Step'] += clock.tick_busy_loop() / 1000
-
         
         count += 1
         
-        if count == 200:
-            draw = 'mod'
-        if count == 400:
-            draw = 'np'
-        if count == 600:
-            run = False
-            pygame.display.quit()
-            break
+        # if count == 200:
+        #     draw = 'mod'
+        # if count == 400:
+        #     draw = 'np'
+        # if count == 600:
+        #     run = False
+        #     pygame.display.quit()
+        #     break
     
     return count, world, times
             
@@ -469,7 +467,7 @@ def save_land(world, name):
     
     tup = tuple(land)
     t = np.empty(land.shape[1], dtype = 'object')
-    t[:] = [(tup[0][x], tup[1][x]) for x in range(66403)]
+    t[:] = [(tup[0][x], tup[1][x]) for x in range(1948)]
     
     unq = np.unique(t)
     new_land = np.empty((2,unq.size), dtype = int)

@@ -264,11 +264,6 @@ def draw_land(pa, land, cell_size, world_slicers, world):
                             (land[1] < world_slicers[1].stop)]
     visible_land[0] -= world_slicers[0].start
     visible_land[1] -= world_slicers[1].start
-    
-    print(np.may_share_memory(visible_land, world.LAND))
-    #print(world.LAND.base)
-    print(visible_land.base)
-    #print(land.base)
         
     start_pixels = get_start_pixels(visible_land, cell_size)
     pixels = get_pixel_indices(start_pixels, cell_size)

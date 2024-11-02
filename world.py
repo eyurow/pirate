@@ -296,6 +296,7 @@ class World:
 
     
 if __name__ == '__main__':
+    '''
     import json
     import pygame
     world = World((200,125), 2)
@@ -347,8 +348,9 @@ if __name__ == '__main__':
         times['Apply Loss'] += clock.tick_busy_loop() / 1000
         
         count += 1
+    '''
         
-        '''
+    '''
         # OLD WINDS
         world.old_propogate_winds()
         times['Prop Winds'] += clock.tick_busy_loop() / 1000
@@ -364,38 +366,36 @@ if __name__ == '__main__':
         times['Apply Loss'] += clock.tick_busy_loop() / 1000
         
         count += 1
-        '''
+    '''
         
     
     
     
-    '''
-    world = World((8,8), 2)
-    #world.LAND[...] = [[3,3],[3,4]]
-    #world.CURRENTS[3,6,0] = 0
-    #world.CURRENTS[3,6,1] = 1
-
-    #world.propogate_winds()
-    # print(world.CURRENTS[:,:,0].T)
-    # print(world.CURRENTS[:,:,1].T)
     
+    world = World((8,8), 2)
+    world.LAND[...] = [[4],[6]]
+    world.WINDS[4,7,1] = 10
+    
+    world.set_wind_thetas()
+    print(world.THETAS[:,:,1].T)
+    world.propogate_array(array = 'winds')
+    world.set_winds()
+    print(world.WINDS[:,:,1].T)
+    
+    
+            
+    world.apply_winds_to_currents()
+    world.impact_land()
+    print(world.CURRENTS[:,:,1].T)
     world.set_current_thetas()
     print(world.THETAS[:,:,1].T)
     
-    world.propogate_currents_ind_arrays()
+    
+    world.propogate_array(array = 'currents')
     world.set_currents()
-    #world.propogate_currents()
-    
-    # print(world.PROP_CURRENTS[:,:,0].T)
-    # print(world.PROP_CURRENTS[:,:,1].T)
-    world.impact_land()
-    
-    # world.set_sim_step()
-    # world.set_current_thetas()
+
     print(world.CURRENTS[:,:,1].T)
-    print(world.CURRENTS.sum())
+    world.apply_energy_loss()
     
-    # print(world.CURRENTS[:,:,0].T)
-    # print(world.CURRENTS[:,:,1].T)
-    '''
+
 
