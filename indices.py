@@ -36,6 +36,12 @@ def get_pixel_indices(start_indices, cell_size):
     
     return (x_rep.ravel(), y_rep.ravel())
 
+def get_indices_within_bounds(indices, x_max, y_max, x_min = 0, y_min = 0):
+    return indices[:, (indices[0] < x_max)&
+                      (indices[0] >= x_min)&
+                      (indices[1] < y_max)&
+                      (indices[1] >= y_min)]
+
 
 
 

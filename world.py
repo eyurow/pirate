@@ -1,4 +1,5 @@
-from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, vector_length
+from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length, generate_circle, generate_thick_circle
+from indices import get_indices_within_bounds
 import numpy as np
 
 
@@ -58,8 +59,6 @@ class Wind:
     def world_points(self):
         # return array of points on world array where this object exists
         pass
- 
-
 
             
                 
@@ -129,20 +128,21 @@ class WindGroup:
             self.error -= self.nd_size * self.movement
                 
                 
-            
-        
-
-        
-        
-
+class WindIndex:
+    def __init__(self):
+        pass
 
     
 
 class World:
     def __init__(self, size, land_size):
         self.SIZE = size
+        self.CENTER = (self.SIZE[0]/2, self.SIZE[1]/2)
         self.LAND = np.zeros((2,land_size), dtype = int) # x, y indices
         self.SEA = []
+        #self.SUN_INDEX = generate_circle(round(self.SIZE[1]/2 * .7), (self.SIZE[0]/2, self.SIZE[1]/2))[:, 1:]
+        
+        #self.SUN = (self.SUN_INDEX[0][0],self.SUN_INDEX[1][0]) # 80,80 world
         
         self.WIND_SEEDS = []
         self.WINDS = np.zeros((self.SIZE[0], self.SIZE[1], 2))
@@ -151,14 +151,107 @@ class World:
         self.PROP_ARRAY = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         # self.PROP_CURRENTS = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         # self.THETA_MASK = np.zeros((self.SIZE[0], self.SIZE[1], 2))
+        self.MGRID = np.mgrid[:self.SIZE[0], :self.SIZE[1]]
+        
+        self.GENERATE_PRESSURE_BANDS()
+        self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
+        self.SUN_FRAMES = 1
+        self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
+        self.CALC_ROTATIONAL_FORCES()
         
         self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .1
-        self.WIND_LOSS_FACTOR = .1
-        self.INNER_BOUND_THETA = np.pi/6 # angle from vector angle whicn forms bound of its impact arc
+        self.CURRENT_LOSS_FACTOR = .07
+        self.WIND_LOSS_FACTOR = .2
+        self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
         self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
         
+        self.CALC_STANDARD_STRENGTH_UNIT()
+        
         self.count = 1
+        
+    
+    def CALC_STANDARD_STRENGTH_UNIT(self):
+        # Current strength magnitude needed to cross 1/10th the vertical diameter with strength of 1 remaining
+        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - self.WIND_LOSS_FACTOR)**(self.SIZE[1])
+        
+
+    def CALC_ROTATIONAL_FORCES(self):
+        radius_vector = np.array( [self.MGRID[0] - self.CENTER[0], self.CENTER[1] - self.MGRID[1]] ) # vector away from center
+        self.CENT_FORCE = radius_vector * self.ANGULAR_VELOCITY**2
+        radius = np.sqrt( radius_vector[0]**2 + radius_vector[1]**2 )
+        self.CORIOLIS_PARAM = 2 * self.ANGULAR_VELOCITY * (1 - radius / radius.max())
+        
+    def apply_coriolis_force(self):
+        self.WINDS[:,:,0] += self.WINDS[:,:,1] * self.CORIOLIS_PARAM
+        self.WINDS[:,:,1] += -self.WINDS[:,:,0] * self.CORIOLIS_PARAM
+        
+        self.CURRENTS[:,:,0] += self.CURRENTS[:,:,1] * self.CORIOLIS_PARAM
+        self.CURRENTS[:,:,1] += -self.CURRENTS[:,:,0] * self.CORIOLIS_PARAM
+        
+    def apply_centrifugal_force(self):
+        self.WINDS[:,:,0] += self.CENT_FORCE[0]
+        self.WINDS[:,:,1] += self.CENT_FORCE[1]
+        
+        self.CURRENTS[:,:,0] += self.CENT_FORCE[0]
+        self.CURRENTS[:,:,1] += self.CENT_FORCE[1]
+
+    def GENERATE_PRESSURE_BANDS(self):
+        POLAR_BAND = generate_thick_circle(max(round(self.SIZE[1]/2 * .03), 2), 2, (self.CENTER[0], self.CENTER[1]))
+        x_carts, y_carts = calc_normal_carts_to_position(POLAR_BAND, ( self.CENTER[0], self.CENTER[1] ))
+        x_carts = -x_carts * 20
+        y_carts = -y_carts * 20
+        self.POLAR_BAND = (POLAR_BAND, np.array([x_carts, y_carts]))
+        
+        INNER_POLAR_BAND = generate_thick_circle(round(self.SIZE[1]/2 * .53), 2, (self.CENTER[0], self.CENTER[1]))
+        x_carts, y_carts = calc_normal_carts_to_position(INNER_POLAR_BAND, ( self.CENTER[0], self.CENTER[1] ))
+        x_carts = x_carts * 3
+        y_carts = y_carts * 3
+        self.INNER_POLAR_BAND = (INNER_POLAR_BAND, np.array([x_carts, y_carts]))
+        
+        INNER_EQ_BAND = generate_thick_circle(round(self.SIZE[1]/2 * .53) + 2, 2, (self.CENTER[0], self.CENTER[1]))
+        x_carts, y_carts = calc_normal_carts_to_position(INNER_EQ_BAND, ( self.CENTER[0], self.CENTER[1] ))
+        x_carts = -x_carts * 5
+        y_carts = -y_carts * 5
+        self.INNER_EQ_BAND = (INNER_EQ_BAND, np.array([x_carts, y_carts]))
+        
+        #OUTER_HI_PRS_BAND = generate_thick_circle(round(self.SIZE[0]/2 * .8), 2, (self.SIZE[0]/2, self.SIZE[1]/2))
+    
+        solar_indices = generate_circle(round(self.SIZE[1]/2 * .82), (self.CENTER[0], self.CENTER[1]))
+        unique, order = np.unique(solar_indices, axis = 1, return_index = True)
+        order.sort()
+        self.SOLAR_BAND = solar_indices[:, order]
+
+    def calc_solar_pressure(self):
+        x_carts, y_carts = calc_normal_carts_to_position(self.MGRID, ( self.SUN[0], self.SUN[1] ))
+        x_carts = x_carts / 20
+        y_carts = y_carts / 20
+        self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
+        
+    def calc_solar_pressure_and_distance(self):
+        x_carts, y_carts, dist = calc_normal_carts_to_position(self.MGRID, ( self.SUN[0], self.SUN[1] ), return_distance = True)
+        
+        x_carts = x_carts / 20
+        y_carts = y_carts / 20
+        self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
+        
+        return dist    
+    
+    
+    def apply_pressure_winds(self):
+        for band in [self.POLAR_BAND, self.INNER_EQ_BAND, self.INNER_POLAR_BAND]:
+            self.WINDS[(band[0][0], band[0][1], 0)] += band[1][0]
+            self.WINDS[(band[0][0], band[0][1], 1)] += band[1][1]
+            
+        self.WINDS[:,:,0] += self.SOLAR_PRESSURE[0]
+        self.WINDS[:,:,1] += self.SOLAR_PRESSURE[1]
+        
+    def move_sun(self, idx):
+        self.SUN = (self.SOLAR_BAND[0, idx], self.SOLAR_BAND[1, idx])
+        
+    
+
+        
+        
         
     
     def get_ref_angle_bounds(self, ref_angle):
@@ -285,117 +378,28 @@ class World:
     def impact_land(self):
         #self.PROP_CURRENTS[self.LAND[0],self.LAND[1]] = 0 
         self.CURRENTS[self.LAND[0],self.LAND[1]] = 0     
-    
+        
+        
+
     
 
 
-
-
+    
+if __name__ == '__main__': 
+    
+    world = World((300,300), 2)
+    #world.LAND[...] = [[4],[6]]
+    #world.WINDS[4,7,1] = 10
+    
+    # if count % 50 == 0:
+    #     sun_index += 1
+    #     if sun_index == sun_index_count:
+    #         sun_index = 0
+    #     world.move_sun(sun_index)
     
     
 
-    
-if __name__ == '__main__':
-    '''
-    import json
-    import pygame
-    world = World((200,125), 2)
-    
-    with open('land1.json', 'r') as f:
-        world.LAND = np.array(json.load(f), dtype = int)
-    
-    world.WIND_SEEDS.append(WindGroup((10,10), (7, 18), 50, direction = -.2, movement = 0))
-    world.WIND_SEEDS.append(WindGroup((110,10), (30,4), 30, direction = -np.pi/2))
-    world.WIND_SEEDS.append(WindGroup((160,30), (8,15), 50, direction = -3*np.pi/4 - .143))
-    
-    world.WIND_SEEDS.append(WindGroup((115,115), (10, 5), 40, direction = np.pi/2 + .156))
-    world.WIND_SEEDS.append(WindGroup((175,60), (10, 10), 70, -np.pi + .198765))
-    world.WIND_SEEDS.append(WindGroup((55,110), (3,50), 20, direction = np.pi/2-.24))
-    world.WIND_SEEDS.append(WindGroup((20,75), (5, 20), 30, .254))
-    
-    world.WIND_SEEDS.append(WindGroup((75,45), (50, 30), 7, 0))
-    
-    
-    times = {
-        'Prop Winds': 0,
-        'Prop Currents': 0,
-        'Apply Loss': 0, #AND Land
-        }
-    clock = pygame.time.Clock()
-    
-    count = 0
-    while count <= 2000:
-        world.WIND_SEEDS[-1].direction += np.pi/30
-        world.WIND_SEEDS[-1].x = np.cos(world.WIND_SEEDS[-1].direction)
-        world.WIND_SEEDS[-1].y = np.sin(world.WIND_SEEDS[-1].direction)
-        
-        world.apply_wind_generators()
-        world.set_wind_thetas()
-        world.propogate_array(array = 'winds')
-        world.set_winds()
-        times['Prop Winds'] += clock.tick_busy_loop() / 1000
-        
-        world.apply_winds_to_currents()
-        world.set_current_thetas()
-        
-        # Draw Here
-        
-        world.propogate_array(array = 'currents')
-        world.set_currents()
-        times['Prop Currents'] += clock.tick_busy_loop() / 1000
-        world.impact_land()
-        world.apply_energy_loss()
-        times['Apply Loss'] += clock.tick_busy_loop() / 1000
-        
-        count += 1
-    '''
-        
-    '''
-        # OLD WINDS
-        world.old_propogate_winds()
-        times['Prop Winds'] += clock.tick_busy_loop() / 1000
-        world.set_current_thetas()
-        
-        # Draw Here
-        
-        world.propogate_array(array = 'currents')
-        world.set_currents()
-        times['Prop Currents'] += clock.tick_busy_loop() / 1000
-        world.impact_land()
-        world.apply_energy_loss()
-        times['Apply Loss'] += clock.tick_busy_loop() / 1000
-        
-        count += 1
-    '''
-        
-    
-    
-    
-    
-    world = World((8,8), 2)
-    world.LAND[...] = [[4],[6]]
-    world.WINDS[4,7,1] = 10
-    
-    world.set_wind_thetas()
-    print(world.THETAS[:,:,1].T)
-    world.propogate_array(array = 'winds')
-    world.set_winds()
-    print(world.WINDS[:,:,1].T)
     
     
             
-    world.apply_winds_to_currents()
-    world.impact_land()
-    print(world.CURRENTS[:,:,1].T)
-    world.set_current_thetas()
-    print(world.THETAS[:,:,1].T)
-    
-    
-    world.propogate_array(array = 'currents')
-    world.set_currents()
-
-    print(world.CURRENTS[:,:,1].T)
-    world.apply_energy_loss()
-    
-
 
