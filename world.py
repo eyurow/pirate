@@ -155,7 +155,7 @@ class World:
         
         self.GENERATE_PRESSURE_BANDS()
         self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
-        self.SUN_FRAMES = 1
+        self.SUN_FRAMES = 20
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
         
@@ -248,7 +248,37 @@ class World:
     def move_sun(self, idx):
         self.SUN = (self.SOLAR_BAND[0, idx], self.SOLAR_BAND[1, idx])
         
+    def old_propogate_winds(self):
+        for wind in self.WIND_SEEDS:
+            strength = wind.strength * self.WIND_STRESS_FACTOR # get strength of wind on sea
+            x = wind.x * strength
+            y = wind.y * strength
+                            
+            if isinstance(wind, WindGroup):
+                wind.propogate_wind()
+
+                #self.WINDS[tuple(wind.index.astype(int))] = wind.strength
+                
+                self.CURRENTS[:,:,0][tuple(wind.index.astype(int))] += x
+                self.CURRENTS[:,:,1][tuple(wind.index.astype(int))] += y
+            
+            elif isinstance(wind, Wind):
+                self.CURRENTS[wind.location][0] += x
+                self.CURRENTS[wind.location][1] += y
+        
+    def apply_wind_generators(self):
+        # Apply Wind Generators to WINDS
+        for wind in self.WIND_SEEDS:
+            self.WINDS[(wind.index[0], wind.index[1], 0)] += wind.x
+            self.WINDS[(wind.index[0], wind.index[1], 1)] += wind.y
     
+    def old_prop_pressure(self):
+        for band in [self.POLAR_BAND, self.INNER_EQ_BAND, self.INNER_POLAR_BAND]:
+            self.CURRENTS[(band[0][0], band[0][1], 0)] += band[1][0] * self.WIND_STRESS_FACTOR
+            self.CURRENTS[(band[0][0], band[0][1], 1)] += band[1][1] * self.WIND_STRESS_FACTOR
+            
+        self.CURRENTS[:,:,0] += self.SOLAR_PRESSURE[0] * self.WIND_STRESS_FACTOR
+        self.CURRENTS[:,:,1] += self.SOLAR_PRESSURE[1] * self.WIND_STRESS_FACTOR
 
         
         
@@ -301,30 +331,6 @@ class World:
         return impact
     
 
-    def old_propogate_winds(self):
-        for wind in self.WIND_SEEDS:
-            strength = wind.strength * self.WIND_STRESS_FACTOR # get strength of wind on sea
-            x = wind.x * strength
-            y = wind.y * strength
-                            
-            if isinstance(wind, WindGroup):
-                wind.propogate_wind()
-
-                #self.WINDS[tuple(wind.index.astype(int))] = wind.strength
-                
-                self.CURRENTS[:,:,0][tuple(wind.index.astype(int))] += x
-                self.CURRENTS[:,:,1][tuple(wind.index.astype(int))] += y
-            
-            elif isinstance(wind, Wind):
-                self.CURRENTS[wind.location][0] += x
-                self.CURRENTS[wind.location][1] += y
-        
-    def apply_wind_generators(self):
-        # Apply Wind Generators to WINDS
-        for wind in self.WIND_SEEDS:
-            self.WINDS[(wind.index[0], wind.index[1], 0)] += wind.x
-            self.WINDS[(wind.index[0], wind.index[1], 1)] += wind.y
-
     def set_wind_thetas(self):
         self.THETAS[:,:,0] = np.arctan2(self.WINDS[:,:,1], self.WINDS[:,:,0]) # calc thetas from x, y coords
         self.THETAS[:,:,1] = np.sqrt(self.WINDS[:,:,1]**2 + self.WINDS[:,:,0]**2) # calc strength using pythag
@@ -332,11 +338,9 @@ class World:
     def set_winds(self):
         self.WINDS[...] = self.PROP_ARRAY[...]
         self.PROP_ARRAY[...] = 0
-            
     
     def apply_winds_to_currents(self):
         self.CURRENTS += self.WINDS * self.WIND_STRESS_FACTOR
-    
      
     def set_current_thetas(self):
         self.THETAS[:,:,0] = np.arctan2(self.CURRENTS[:,:,1], self.CURRENTS[:,:,0]) # calc thetas from x, y coords
