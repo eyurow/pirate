@@ -1,27 +1,49 @@
 import numpy as np
-from testclass import Test
-
-glob = 10
-
-def set_pa():
-    global glob
-    glob += 10
+from testclass import Test, test
+import pygame
+import pygame.surfarray as sa
 
 
 
 def run():
-    global glob
-    glob = 10
+    pygame.init()
+    WIN = pygame.display.set_mode((500,500), pygame.RESIZABLE)
+    PA = sa.pixels3d(WIN)
+    pygame.event.set_allowed(pygame.QUIT)
 
-    t = Test(glob)
-    t.t()
-    
-def none():
-    x = 5 + glob
-    print(str(glob)[1])
+    run = True
+    while run:
+        events = pygame.event.get()
+        print(events)
+        for event in events:
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.display.quit()
+            
+        
+        test(PA)
 
-    #set_pa()
+def kwargs(**kwargs):
+    global D, W
+    D = 'sun'
+
+global D, W
+D = 'light'
+W = 100
+
+gl = {D:D,
+      W:W}
+
 
 if __name__ == '__main__':
-    #run()
-    none()
+    x = 3
+    if x >= 5:
+        print(5)
+    elif x >= 4:
+        print(4)
+    elif x >= 3:
+        print(3)   
+    elif x >= 2:
+        print(2)    
+    elif x >= 1:
+        print(1)

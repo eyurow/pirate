@@ -1,60 +1,34 @@
 import numpy as np
 import pygame
-import pygame.surfarray as sa
 
-
-def set_pixelarray(): #(pa, world, WIDTH, HEIGHT, CELL_SIZE, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y):
-    print(globals())
-    pa[:20] = (0,0,0)
-           
-
-
-
-def test():
-    print(globals())
-
-    glob[2,2] = 10
-    print(locals())
+def test(PA):
+    PA[:,:] = (150,150,150)
+    pygame.display.update()
 
 class Test:
-    def __init__(self):
-        pass
+    def __init__(self, intt, ar):
+        self.intt = intt
+        self.ar = ar
 
-    def t(self):
-        glob[:, 5:] = 10
+    def mi(self):
+        self.intt += 1
+    
+    def ma(self):
+        self.ar[1,1] = 10
 
-# glob = None
-# glob = np.zeros((10,10))
-
-WIDTH, HEIGHT = (1200,600)
-pa = None
+    def mr(self):
+        global globi
+        globi += 5
+        globa[:2] = (3,3,3)
 
 def run():
-    pygame.init()
-    
-    global WIDTH, HEIGHT, pa
-    WINDOW = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE) #(WIDTH, HEIGHT))
-    pa = sa.pixels3d(WINDOW)
-
-    col = 50
-    
-    set_pixelarray()
-
-    run = True
-    while run:
-        events = pygame.event.get()
-        for event in events:
-            if event.type in [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
-                pa = sa.pixels3d(WINDOW)
-                pa[...] = col
-                set_pixelarray()
-                col += 10
-            if event.type == pygame.QUIT:
-                run = False
-                pygame.display.quit()
-                break
-        pygame.display.update()
-
+    global globi, globa
+    globi = 10
+    globa = np.zeros((3,3,3))
+    c = Test(10, np.zeros((5,5)))
+    c.mr()
+    print(globi, globa)
 
 if __name__ == '__main__':
+
     run()

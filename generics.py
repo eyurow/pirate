@@ -21,6 +21,16 @@ def DBZ(n, d, handle = 0):
     else:
         return n / d
         
+def get_margin(outer_size, inner_size):
+    '''
+    INPUT: outer and inner container sizes; e.g. outer is screen size of 1221, inner is WORLD-pixel size of 1200 (300*4)
+    OUTPUT: excess units at start and end of outer container; e.g. 10 and 11 pixels in above example as the screen has 21 more pixels than the WORLD requires to render
+    '''
+    margin = outer_size - inner_size
+    start = margin // 2
+    end = margin - start
+    return start, end
+
     
 ## Trig
 def vector_length(x, y):

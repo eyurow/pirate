@@ -1,7 +1,9 @@
 from world import World, Wind, WindGroup
 
 from vis import *
+from ui import EscapeMenu, Context
 from indices import get_pixel_indices
+from generics import get_margin
 import numpy as np
 import json
 
@@ -10,7 +12,7 @@ import pygame.surfarray as sa
 pygame.font.init()
 
 
-np.set_printoptions(precision = 6, threshold = 1600, suppress = True)
+np.set_printoptions(precision = 2, threshold = 1600, suppress = True)
 
 
 
@@ -102,380 +104,379 @@ def receive_inputs(mouse_movement = False):
             return 0
         
 
-def receive_escape_menu_inputs(mouse_movement = False):
-    waiting = True
-    while waiting:
-        event = pygame.event.wait()
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN):
-            return 'quit'
-        
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-            return True
-            
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_f:
-            return 'fill'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
-            return 'light'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
-            return 'sun'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
-            return 'sun2'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return 'ind'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return 'red'
-        
-        
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            print(f'DOWN: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEMOTION and mouse_movement:
-            print(f'MOVE: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            print(f'UP: {event}')
-            return 0
-
-def get_margin(outer_size, inner_size):
-    '''
-    INPUT: outer and inner container sizes; e.g. outer is screen size of 1221, inner is world-pixel size of 1200 (300*4)
-    OUTPUT: excess units at start and end of outer container; e.g. 10 and 11 pixels in above example as the screen has 21 more pixels than the world requires to render
-    '''
-    margin = outer_size - inner_size
-    start = margin // 2
-    end = margin - start
-    return start, end
-
-def set_pixelarray(world, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y):
-    global pa
-    print('set start: ', pa.__array_interface__)
-    if WIDTH > world.SIZE[0] * CELL_SIZE:
-        start, end = get_margin(WIDTH, world.SIZE[0] * CELL_SIZE)
-        pa[:start] = (0,0,0)
-        pa[-end:] = (0,0,0)
-        pa = pa[start:-end]
-        start_pixel_x = start
-        world_slicer_x = slice(0, world.SIZE[0])
-    elif WIDTH < world.SIZE[0] * CELL_SIZE:
-        # get world slicer
-        start, end = get_margin(world.SIZE[0], WIDTH // CELL_SIZE)
-        world_slicer_x = slice(start, world.SIZE[0] - end)
-        # get pixel slicer
-        if WIDTH > CELL_SIZE * (world.SIZE[0] - start - end): # if screen WIDTH greater than sliced world size
-            start, end = get_margin(WIDTH, CELL_SIZE * (world.SIZE[0] - start - end))
-            pa[:start] = (0,0,0)
-            pa[-end:] = (0,0,0)
-            pa = pa[start:-end]
-            start_pixel_x = start
-    elif WIDTH == world.SIZE[0] * CELL_SIZE:
-        start_pixel_x = 0
-        world_slicer_x = slice(0, world.SIZE[0])
-    
-    if HEIGHT > world.SIZE[1] * CELL_SIZE:
-        start, end = get_margin(HEIGHT, world.SIZE[1] * CELL_SIZE)
-        pa[:, :start] = (0,0,0)
-        pa[:, -end:] = (0,0,0)
-        pa = pa[:, start:-end]
-        start_pixel_y = start
-        world_slicer_y = slice(0, world.SIZE[1])
-    elif HEIGHT < world.SIZE[1] * CELL_SIZE:
-        # get world slicer
-        start, end = get_margin(world.SIZE[1], HEIGHT // CELL_SIZE)
-        world_slicer_y = slice(start, world.SIZE[1] - end)
-        # get pixel slicer
-        if HEIGHT > CELL_SIZE * (world.SIZE[1] - start - end): # if screen WIDTH greater than sliced world size
-            start, end = get_margin(HEIGHT, CELL_SIZE * (world.SIZE[1] - start - end))
-            pa[:, :start] = (0,0,0)
-            pa[:, -end:] = (0,0,0)
-            pa = pa[:, start:-end]
-            start_pixel_y = start
-    elif HEIGHT == world.SIZE[1] * CELL_SIZE:
-        start_pixel_y = 0
-        world_slicer_y = slice(0, world.SIZE[1])
-    
-    print('set end: ', pa.__array_interface__)
-    # return pa, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y
-    return world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y
-
-
-def draw_menu(pa, scale = .9):
-    left_marg = int(pa.shape[0] * (1 - scale))
-    right_marg = int(pa.shape[0] * scale)
-    top_marg = int(pa.shape[1] * (1 - scale))
-    bot_marg = int(pa.shape[1] * scale)
-    
-    pa[left_marg:right_marg, top_marg:bot_marg,:] = 150
-    
-    f = pygame.font.SysFont('helvetica', size = 30, bold = True)
-    r = f.render('test', 0, (0,0,0))
-    pix = sa.pixels2d(r)
-    ind = np.where(pix == 1)
-
-    pa[(ind[0] + left_marg, ind[1] + top_marg)] = (0,0,0)
-
-
-
 class InputHandler:
-    def __init__(self, pa, width, height):
-        self.pa = pa
-        self.width = width
-        self.height = height
+    def __init__(self, screen, renderer):
+        self.screen = screen
+        self.renderer = renderer
+
+        self.context = 'run'
+        self.queue = []
+        self.mouse_movement = False
+        self.add_land = []
+
+    def default_handle(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_f:
+            self.renderer.set_draw(pa_fill_color)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
+            self.renderer.set_draw(fill_color_light)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
+            self.renderer.set_draw(fill_color_sun)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
+            self.renderer.set_draw(fill_color_sun2)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            self.renderer.set_draw(fill_ind_colors)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+            self.renderer.set_draw(fill_ind_red)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
+            self.renderer.set_draw(fill_fluc_blue)
+        
+        elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (event.type == pygame.MOUSEMOTION and self.mouse_movement):
+            modified_pos = (event.pos[0] - self.renderer.START_PIXEL_X + self.renderer.WORLD_SLICER_X.start * self.renderer.CELL_SIZE,
+                            event.pos[1] - self.renderer.START_PIXEL_Y + self.renderer.WORLD_SLICER_Y.start * self.renderer.CELL_SIZE)
+            same_pos_size = WORLD.LAND[:, (WORLD.LAND[0] == modified_pos[0]//self.renderer.CELL_SIZE)& 
+                                        (WORLD.LAND[1] == modified_pos[1]//self.renderer.CELL_SIZE)].size
+            if same_pos_size == 0 and modified_pos not in self.add_land:
+                self.add_land.append(modified_pos)
+            self.mouse_movement = True
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            add_land_array = np.array(self.add_land).T // self.renderer.CELL_SIZE
+            WORLD.LAND = np.concatenate([WORLD.LAND, add_land_array], axis = 1) #, dtype = int)
+            self.mouse_movement = False
+
+    
+    def handle(self):
+        global WORLD
+
+        handling = True
+        events = []
+        # events = pygame.event.get()
+        if pygame.event.peek(pygame.QUIT):
+            return self.quit()
+        if pygame.event.peek([pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]):
+            self.resize()
+
+        while handling:
+            match self.context:
+                case 'run':
+                    handling = False # set to False, will be intercepted below if need be (quit, EscapeMenu, pause)
+                    events = pygame.event.get()
+                    # for event in events:
+                    for _ in range(len(events)):
+                        event = events.pop(0)
+
+                        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                            ESC_MENU.display()
+                            self.context = 'escape menu'
+                            handling = True
+                            break
+                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                            self.context = 'pause'
+                            handling = True
+
+                        else:
+                            self.default_handle(event)
+                            
+                case 'pause':
+                    waiting = True
+                    while waiting:
+                        if events:
+                            event = events.pop(0)
+                        else:
+                            event = pygame.event.wait()
+
+                        if event.type == pygame.QUIT:
+                            return self.quit()
+                        elif event.type in [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
+                            self.resize()
+                        
+                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                            ESC_MENU.display()
+                            self.context = 'escape menu'
+                            waiting = False
+                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                            self.context = 'run'
+                            waiting = False
+                            handling = False
+                        
+                        else:
+                            self.default_handle(event)
+
+
+                case 'escape menu':
+                    waiting = True
+                    while waiting:
+                        event = pygame.event.wait()
+                        if event.type == pygame.QUIT:
+                            return self.quit()
+                        elif event.type in [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
+                            self.resize()
+                            ESC_MENU.display()
+                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: # reset context, close menu and continue frame
+                            ESC_MENU.bcontext.restore_base()
+                            self.context = 'run'
+                            waiting = False
+                            handling = False
+                        
+                        elif event.type == pygame.MOUSEBUTTONDOWN:
+                            pos = (event.pos[0] - self.renderer.START_PIXEL_X, event.pos[1] - self.renderer.START_PIXEL_Y)
+                            ctx = ESC_MENU.context.button_context
+                            check = ctx.map[4, (ctx.map[0] <= pos[0])&(ctx.map[1] <= pos[1])&(ctx.map[2] >= pos[0])&(ctx.map[3] >= pos[1])] # return any buttons on context map where click was within button borders
+                            if check.size > 0:
+                                button = ctx.key[check[0]]
+                                button.press(self)
+                            else:
+                                if ESC_MENU.bcontext.active:
+                                    ESC_MENU.refresh_base()
+                
+
+
+    def quit(self):
+        global RUN
+        RUN = False
+        pygame.display.quit()
+        return 'quit'
+    
+    def resize(self):
+        self.renderer.refresh_PA()
+        self.renderer.set_pixelarray()
+        ESC_MENU.resize()        
 
 
 
-class Menu:
-    def __init__(self, pa):
-        pass
-class EscapeMenu(Menu):
-    def __init__(self):
-        pass
-        # self.pa = pa
-        # print('initmenu: ', hex(id(self.pa)), pa.shape)
-        # self.left_marg = int(pa.shape[0] * (1 - scale))
-        # self.right_marg = int(pa.shape[0] * scale)
-        # self.top_marg = int(pa.shape[1] * (1 - scale))
-        # self.bot_marg = int(pa.shape[1] * scale)    
 
-    def resize(self, scale = .9):
-        #self.pa = pa
+class Screen:
+    def __init__(self, width, height):
+        self.WIN = None
+        self.WIDTH = width
+        self.HEIGHT = height
+        self.init_window(width, height)
 
-        self.left_marg = int(pa.shape[0] * (1 - scale))
-        self.right_marg = int(pa.shape[0] * scale)
-        self.top_marg = int(pa.shape[1] * (1 - scale))
-        self.bot_marg = int(pa.shape[1] * scale)   
+    def init_window(self, width, height):
+        self.WIN = pygame.display.set_mode((width, height), pygame.RESIZABLE)
 
-    def display(self):
-        print('disp: ', pa.__array_interface__)
-        screen_blur(pa)
-        pa[self.left_marg:self.right_marg, self.top_marg:self.bot_marg] = (166, 93, 7)
-        pa[self.left_marg, self.top_marg:self.bot_marg] = (0,0,0)
-        pa[self.right_marg, self.top_marg:self.bot_marg] = (0,0,0)
-        pa[self.left_marg:self.right_marg, self.top_marg] = (0,0,0)
-        pa[self.left_marg:self.right_marg, self.bot_marg] = (0,0,0)
+    def update_display(self):
         pygame.display.update()
 
-    def wait_for_input(self):
-        waiting = True
-        while waiting:
-            event = pygame.event.wait()
-            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN):
-                return 'quit'
-            
-            elif event.type == [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
-                global pa
-                pa = sa.pixels3d(WINDOW)
-                WIDTH, HEIGHT = pa.shape[0], pa.shape[1]
-                world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y = set_pixelarray(world, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y) 
-                self.resize() 
+    
 
-            
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                waiting = False
 
+
+class Renderer:
+    def __init__(self, screen, cell_size):
+        self.screen = screen
+        self.PA = None
+        # self.WIDTH = None
+        # self.HEIGHT = None
+        self.CELL_SIZE = cell_size
+        self.DRAW = fill_ind_colors
+        # self.world = world  --  if moved out of main will need to tie to world here
+        self.WORLD_SLICER_X = slice(0, WORLD.SIZE[0])
+        self.WORLD_SLICER_Y = slice(0, WORLD.SIZE[0])
+        self.START_PIXEL_X = 0
+        self.START_PIXEL_Y = 0
+
+    def refresh_PA(self):
+        self.PA = sa.pixels3d(self.screen.WIN)
+        self.screen.WIDTH, self.screen.HEIGHT = self.PA.shape[:2]
+    
+    def set_draw(self, func):
+        self.DRAW = func
+    
+    def draw_world(self, sun_dist):
+        self.DRAW(self.PA, WORLD.THETAS[self.WORLD_SLICER_X, self.WORLD_SLICER_Y, 1], sun_dist[self.WORLD_SLICER_X, self.WORLD_SLICER_Y], self.CELL_SIZE, WORLD.SIZE)
+        draw_land(self.PA, WORLD.LAND, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
+        draw_sun(self.PA, WORLD.SUN, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
+        self.update_display()
+
+    def draw_menu(self, menu):
+        # screen_blur(PA)
+        self.PA[menu.left_marg:menu.right_marg, menu.top_marg:menu.bot_marg] = (166, 93, 7)
+        self.PA[menu.left_marg, menu.top_marg:menu.bot_marg] = (0,0,0)
+        self.PA[menu.right_marg, menu.top_marg:menu.bot_marg] = (0,0,0)
+        self.PA[menu.left_marg:menu.right_marg, menu.top_marg] = (0,0,0)
+        self.PA[menu.left_marg:menu.right_marg, menu.bot_marg] = (0,0,0)
+
+    def draw_button(self, button, menu_pos = (0,0)):
+        if button.type == 'array':
+            self.PA[menu_pos[0] + button.pos[0]:menu_pos[0] + button.pos[0] + button.size[0], 
+                    menu_pos[1] + button.pos[1]:menu_pos[1] + button.pos[1] + button.size[1]] = button.array
+            
+        elif button.type == 'index':
+            self.PA[(menu_pos[0] + button.pos[0] + button.text_ind[0], menu_pos[1] + button.pos[0] + button.text_ind[1])] = button.text_color
+            self.PA[(menu_pos[0] + button.border_ind[0], menu_pos[1] + button.border_ind[1])] = button.border_color
+
+        elif button.type == 'text':
+            self.PA[(menu_pos[0] + button.pos[0] + button.text_ind[0], menu_pos[1] + button.pos[0] + button.text_ind[1])] = button.text_color
+
+
+    
+    def set_pixelarray(self):
+        if self.screen.WIDTH > WORLD.SIZE[0] * self.CELL_SIZE:
+            start, end = get_margin(self.screen.WIDTH, WORLD.SIZE[0] * self.CELL_SIZE)
+            self.PA[:start] = (0,0,0)
+            self.PA[-end:] = (0,0,0)
+            self.PA = self.PA[start:-end]
+            self.START_PIXEL_X = start
+            self.WORLD_SLICER_X = slice(0, WORLD.SIZE[0])
+        elif self.screen.WIDTH < WORLD.SIZE[0] * self.CELL_SIZE:
+            # get WORLD slicer
+            start, end = get_margin(WORLD.SIZE[0], self.screen.WIDTH // self.CELL_SIZE)
+            self.WORLD_SLICER_X = slice(start, WORLD.SIZE[0] - end)
+            # get pixel slicer
+            if self.screen.WIDTH > self.CELL_SIZE * (WORLD.SIZE[0] - start - end): # if screen WIDTH greater than sliced WORLD size
+                start, end = get_margin(self.screen.WIDTH, self.CELL_SIZE * (WORLD.SIZE[0] - start - end))
+                self.PA[:start] = (0,0,0)
+                self.PA[-end:] = (0,0,0)
+                self.PA = self.PA[start:-end]
+                self.START_PIXEL_X = start
+        elif self.screen.WIDTH == WORLD.SIZE[0] * self.CELL_SIZE:
+            self.START_PIXEL_X = 0
+            self.WORLD_SLICER_X = slice(0, WORLD.SIZE[0])
+        
+        if self.screen.HEIGHT > WORLD.SIZE[1] * self.CELL_SIZE:
+            start, end = get_margin(self.screen.HEIGHT, WORLD.SIZE[1] * CELL_SIZE)
+            self.PA[:, :start] = (0,0,0)
+            self.PA[:, -end:] = (0,0,0)
+            self.PA = self.PA[:, start:-end]
+            self.START_PIXEL_Y = start
+            self.WORLD_SLICER_Y = slice(0, WORLD.SIZE[1])
+        elif self.screen.HEIGHT < WORLD.SIZE[1] * self.CELL_SIZE:
+            # get WORLD slicer
+            start, end = get_margin(WORLD.SIZE[1], self.screen.HEIGHT // self.CELL_SIZE)
+            self.WORLD_SLICER_Y = slice(start, WORLD.SIZE[1] - end)
+            # get pixel slicer
+            if self.screen.HEIGHT > self.CELL_SIZE * (WORLD.SIZE[1] - start - end): # if screen WIDTH greater than sliced WORLD size
+                start, end = get_margin(self.screen.HEIGHT, self.CELL_SIZE * (WORLD.SIZE[1] - start - end))
+                self.PA[:, :start] = (0,0,0)
+                self.PA[:, -end:] = (0,0,0)
+                self.PA = self.PA[:, start:-end]
+                self.START_PIXEL_Y = start
+        elif self.screen.HEIGHT == WORLD.SIZE[1] * self.CELL_SIZE:
+            self.START_PIXEL_Y = 0
+            self.WORLD_SLICER_Y = slice(0, WORLD.SIZE[1])
+
+    def update_display(self):
+        self.screen.update_display()
+    
 
 
             
 WIDTH, HEIGHT = (1200,600)
 CELL_SIZE = 3
-pa = None
+PA = None
 
 def run():
-    pygame.init()
-    
-    global WIDTH, HEIGHT, CELL_SIZE, pa, WINDOW
-    WINDOW = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE) #(WIDTH, HEIGHT))
-    pa = sa.pixels3d(WINDOW)
+    global WORLD, RUN, ESC_MENU
 
-    world = World((500,300), 16) # 100,60
-    
+    pygame.init()
+    WORLD = World((500,300), 16) # 100,60
+    with open('200x200_v1.json', 'r') as f:
+        WORLD.LAND = np.array(json.load(f), dtype = int)
+    WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
+                                  (WORLD.LAND[0] >= 0)&
+                                  (WORLD.LAND[1] < WORLD.SIZE[1])&
+                                  (WORLD.LAND[1] >= 0)]
+
+    SCREEN = Screen(WIDTH, HEIGHT)
+    RENDERER = Renderer(SCREEN, CELL_SIZE)
+    INP_HANDLER = InputHandler(SCREEN, RENDERER)
+    ESC_MENU = EscapeMenu(RENDERER)
+    RUN = True
+
+    RENDERER.refresh_PA()
+    RENDERER.set_pixelarray()
+    ESC_MENU.resize()
+
     count = 0
-    sun_index_count = world.SOLAR_BAND[0].size
+    sun_index_count = WORLD.SOLAR_BAND[0].size
     sun_index = 0
     clock = pygame.time.Clock()
     times = {
-        'Key': 0,
-        'Prop Winds': 0,
-        'Prop Currents': 0,
-        'Apply Loss': 0,
-        'Set Step': 0,
-        'Draw': {'composite':0,
-                 'currents':0,
-                 'winds':0,
-                 'np':0,
-                 'sa':{'norm':0,
-                       'rotate':0,
-                       'blit':0}},
-        'Render': 0
+        'Sim':0,
+        'Handle':0,
+        'Render':0
         }
-    world_slicer_x = slice(0, world.SIZE[0])
-    world_slicer_y = slice(0, world.SIZE[1])
-    start_pixel_x = 0
-    start_pixel_y = 0
-    draw = 'fill'
-    add_land = []
-    mouse_movement = False
-    ESC_MENU = EscapeMenu()
-    run = True
-    
-    world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y = set_pixelarray(world, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y)
-    ESC_MENU.resize()
 
-    with open('200x200_v1.json', 'r') as f:
-        world.LAND = np.array(json.load(f), dtype = int)
-    world.LAND = world.LAND[:, (world.LAND[0] < world.SIZE[0])&
-                                  (world.LAND[0] >= 0)&
-                                  (world.LAND[1] < world.SIZE[1])&
-                                  (world.LAND[1] >= 0)]
-
-    while run:
+    while RUN:
         #times['Key'] += clock.tick_busy_loop() / 1000
         
+        ########################
         ### SIMULATE WORLD ###
-        world.apply_coriolis_force()
-        # world.apply_centrifugal_force()
+        WORLD.apply_coriolis_force()
+        # WORLD.apply_centrifugal_force()
         
-        if count % world.SUN_FRAMES == 0:
+        if count % WORLD.SUN_FRAMES == 0:
             sun_index += 1
             if sun_index == sun_index_count:
                 sun_index = 0
-            world.move_sun(sun_index)
-            sun_dist = world.calc_solar_pressure_and_distance()
+            WORLD.move_sun(sun_index)
+            sun_dist = WORLD.calc_solar_pressure_and_distance()
         
         ### Prop Winds and Set Current Thetas
         '''
         # OLD WINDS
-        world.old_propogate_winds/pressure()
-        world.set_current_thetas()
+        WORLD.old_propogate_winds/pressure()
+        WORLD.set_current_thetas()
         '''
-        world.apply_pressure_winds()
+        WORLD.apply_pressure_winds()
         
         ## Set Winds
-        world.set_wind_thetas()
-        world.propogate_array(array = 'winds')
-        world.set_winds()
-        world.apply_winds_to_currents()
+        WORLD.set_wind_thetas()
+        WORLD.propogate_array(array = 'winds')
+        WORLD.set_winds()
+        WORLD.apply_winds_to_currents()
         # #times['Prop Winds'] += clock.tick_busy_loop() / 1000
 
         ## Set Current Thetas
-        world.impact_land()
-        world.set_current_thetas()
+        WORLD.impact_land()
+        WORLD.set_current_thetas()
+        times['Sim'] += clock.tick_busy_loop() / 1000
 
-
+        ####################
         ### HANDLE INPUTS ###
-        #inp = wait_for_input(mouse_movement)
-        inp = receive_inputs(mouse_movement)
-        
-        if inp == 'quit':    
-            run = False
-            pygame.display.quit()
+        direction = INP_HANDLER.handle()
+        if direction == 'quit':
             break
-        elif inp == 'escape menu':
-            #print('premenu: ', id(pa), pa.shape)
-            ESC_MENU.display()
+        times['Handle'] += clock.tick_busy_loop() / 1000
 
-            ESC_MENU.wait_for_input()
-            #print('postmenu: ', id(pa), pa.shape)
-        elif inp == 'resize':
-            pa = sa.pixels3d(WINDOW)
-            print('resize start: ', pa.__array_interface__)
-            #print('nresize: ', id(pa), pa.shape)
-            #print('pabase: ', pa.base, pa.shape)
-            
-            WIDTH, HEIGHT = pa.shape[0], pa.shape[1]
-            world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y = set_pixelarray(world, world_slicer_x, world_slicer_y, start_pixel_x, start_pixel_y) 
-            print('resize end: ', pa.__array_interface__)
-            print('_______')
-            ESC_MENU.resize() 
-            #print('presize: ', id(pa), pa.shape)             
-        elif isinstance(inp, tuple): # add land
-            modified_pos = (inp[0] - start_pixel_x + world_slicer_x.start * CELL_SIZE,
-                            inp[1] - start_pixel_y + world_slicer_y.start * CELL_SIZE)
-            same_pos_size = world.LAND[:, (world.LAND[0] == modified_pos[0]//CELL_SIZE)& 
-                                          (world.LAND[1] == modified_pos[1]//CELL_SIZE)].size
-            if same_pos_size == 0 and modified_pos not in add_land:
-                add_land.append(modified_pos)
-            mouse_movement = True
-        elif inp == 0: # end adding land
-            add_land_array = np.array(add_land).T // CELL_SIZE
-            world.LAND = np.concatenate([world.LAND, add_land_array], axis = 1) #, dtype = int)
-            mouse_movement = False
-        
-        elif inp == 'text':
-            draw = None
-            draw_menu(pa)
-        
-        elif inp in ['fill','light','sun','sun2','ind','red','blue']:
-            draw = inp
-
-        
+        #####################
         ### RENDER ###
-        if draw == 'fill':
-            pa_fill_color(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], CELL_SIZE)
-        elif draw == 'light':
-            fill_color_light(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE)
-        elif draw == 'sun':
-            fill_color_sun(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE)
-        elif draw == 'sun2':
-            fill_color_sun2(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE, world.SIZE)
-        elif draw == 'ind':
-            fill_ind_colors(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE, world.SIZE)
-        elif draw == 'red':
-            fill_ind_red(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE, world.SIZE)
-        elif draw == 'blue':
-            fill_parabola(pa, world.THETAS[world_slicer_x, world_slicer_y, 1], sun_dist[world_slicer_x, world_slicer_y], CELL_SIZE, world.SIZE)
-
-        draw_land(pa, world.LAND, CELL_SIZE, (world_slicer_x, world_slicer_y))
-        draw_sun(pa, world.SUN, CELL_SIZE, (world_slicer_x, world_slicer_y))
-
-        # elif draw == 'sa':
-        #     pa[...] = (64,204,190)
-        #     draw_normal_current_triangles(pa, world.THETAS[world_slicer_x, world_slicer_y], CELL_SIZE)
-        #     draw_str_modified_current_triangles(pa, world.THETAS[world_slicer_x, world_slicer_y], CELL_SIZE)
-        #     rotate_current_triangles(pa, world.THETAS[world_slicer_x, world_slicer_y], CELL_SIZE)
-            
-        #draw_land(pa, world.POLAR_BAND[0], CELL_SIZE, (world_slicer_x, world_slicer_y), (244, 245, 226))
-        #draw_land(pa, world.INNER_POLAR_BAND[0], CELL_SIZE, (world_slicer_x, world_slicer_y), (128,128,128))
-        #draw_land(pa, world.INNER_EQ_BAND[0], CELL_SIZE, (world_slicer_x, world_slicer_y), (255,228,181))
-        #draw_land(pa, world.SOLAR_BAND, CELL_SIZE, (world_slicer_x, world_slicer_y), (255,255,50))
-
-        #times['Draw'] += clock.tick_busy_loop() / 1000
-        
-        pygame.display.update()
-        #times['Render'] += clock.tick_busy_loop() / 1000
+        RENDERER.draw_world(sun_dist)
+        times['Render'] += clock.tick_busy_loop() / 1000
         
         
+        ######################
         ### SIMULATE WORLD ###
-        world.propogate_array(array = 'currents')
-        world.set_currents()
+        WORLD.propogate_array(array = 'currents')
+        WORLD.set_currents()
 
-        world.apply_energy_loss()
-        #times['Apply Loss'] += clock.tick_busy_loop() / 1000
-        
+        WORLD.apply_energy_loss()
+        # times['Sim2'] += clock.tick_busy_loop() / 1000
         
         count += 1
         
-        # if count == 200:
-        #     draw = 'light'
-        # if count == 400:
-        #     draw = 'sun'
-        # if count == 600:
-        #     draw = 'sun2'
-        # if count == 800:
-        #     draw = 'ind'
-        # if count == 1000:
-        #     draw = 'red'
-        # if count == 1200:
-        #     draw = 'blue'
-        # if count == 1400:
-        #     run = False
-        #     pygame.display.quit()
-        #     break
-    return count, world, times
+        if count == 1000:
+            RENDERER.DRAW = fill_color_sun
+        if count == 2000:
+            draw = 'sun'
+        if count == 3000:
+            draw = 'sun2'
+        if count == 4000:
+            draw = 'ind'
+        if count == 5000:
+            draw = 'red'
+        if count == 6000:
+            draw = 'blue'
+        if count == 7000:
+            run = False
+            pygame.display.quit()
+    return count, WORLD, times
             
 
         
 if __name__ == '__main__':
     countc, worldc, timesc = run()
+    avg = {k: v/countc for k, v in times.items()}
 
 
 def save_land(world, name):

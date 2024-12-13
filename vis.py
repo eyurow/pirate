@@ -108,7 +108,7 @@ def draw_winds(win, winds, cell_size = 0):
 
         
         
-def pa_random_color(pa, strengths, cell_size):
+def pa_random_color(pa, strengths, distance, cell_size, ref_size = (400,200)):
     shape = pa.shape[:2]
     
     #str_big = np.repeat(np.repeat(strengths, cell_size, axis = 1), cell_size, axis = 0)
@@ -120,7 +120,7 @@ def pa_random_color(pa, strengths, cell_size):
     pa[:,:,0] = np.random.uniform(20,30,shape)
     
 
-def pa_fill_color(pa, strengths, cell_size):
+def pa_fill_color(pa, strengths, distance, cell_size, ref_size = (400,200)):
     scaled = np.arctan(strengths/2)
     percentile = scaled / (np.pi/2)
     
@@ -135,7 +135,7 @@ def pa_fill_color(pa, strengths, cell_size):
     pa[:,:,0] = 0
     
 
-def funky1(pa, strengths, distance, cell_size):
+def funky1(pa, strengths, distance, cell_size, ref_size = (400,200)):
     scaled = np.arctan(strengths/2)
     percentile = scaled / (np.pi/2)
     
@@ -151,7 +151,7 @@ def funky1(pa, strengths, distance, cell_size):
     
 
     
-def funky2(pa, strengths, distance, cell_size):
+def funky2(pa, strengths, distance, cell_size, ref_size = (400,200)):
     dist_big = np.repeat(np.repeat(distance, cell_size, axis = 1), cell_size, axis = 0)
     
     pa[:,:,2] = 209 - ( (209 - 48) * dist_big )     #(1 - dist_big / distance.max()) 
@@ -160,7 +160,7 @@ def funky2(pa, strengths, distance, cell_size):
     
     
     
-def fill_color_light(pa, strengths, distance, cell_size):
+def fill_color_light(pa, strengths, distance, cell_size, ref_size = (400,200)):
     #adjusted_strength = np.maximum(( 70 * (strengths**(1/3)) ), 200)
     adjusted_strength = np.arctan(strengths) / (np.pi/2)
     adjusted_distance = np.minimum(distance / 282, 1) #np.sqrt(300**2 + 300**2)
@@ -180,7 +180,7 @@ def fill_color_light(pa, strengths, distance, cell_size):
     
 def fill_color_sun(pa, strengths, distance, cell_size, ref_dist = 200):
     adjusted_strength = np.arctan(strengths) / (np.pi/2)
-    adjusted_distance = np.minimum(distance / ref_dist, 1) #np.sqrt(300**2 + 300**2)
+    adjusted_distance = np.minimum(distance / 200, 1) #np.sqrt(300**2 + 300**2)
     
     base_blue = (240 - (240) * adjusted_strength) * (1 - adjusted_distance)**2
     base_green = base_blue * .898039 # blue / 1.113 as base; increased when near sun
