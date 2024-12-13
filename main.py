@@ -282,8 +282,8 @@ class Renderer:
     def set_draw(self, func):
         self.DRAW = func
     
-    def draw_world(self, sun_dist):
-        self.DRAW(self.PA, WORLD.THETAS[self.WORLD_SLICER_X, self.WORLD_SLICER_Y, 1], sun_dist[self.WORLD_SLICER_X, self.WORLD_SLICER_Y], self.CELL_SIZE, WORLD.SIZE)
+    def draw_world(self):
+        self.DRAW(self.PA, WORLD.THETAS[self.WORLD_SLICER_X, self.WORLD_SLICER_Y, 1], WORLD.DISTANCE_FROM_SUN[self.WORLD_SLICER_X, self.WORLD_SLICER_Y], self.CELL_SIZE, WORLD.SIZE)
         draw_land(self.PA, WORLD.LAND, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
         draw_sun(self.PA, WORLD.SUN, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
         self.update_display()
@@ -398,7 +398,7 @@ def run():
         }
 
     while RUN:
-        sun_dist = WORLD.sim_sun(count)
+        WORLD.sim_sun(count)
         WORLD.sim_winds()
         times['Sim'] += clock.tick_busy_loop() / 1000
 
@@ -407,7 +407,7 @@ def run():
             break
         times['Handle'] += clock.tick_busy_loop() / 1000
 
-        RENDERER.draw_world(sun_dist)
+        RENDERER.draw_world()
         times['Render'] += clock.tick_busy_loop() / 1000
 
         WORLD.sim_currents()

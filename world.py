@@ -156,6 +156,8 @@ class World:
         self.GENERATE_PRESSURE_BANDS()
         self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
         self.SUN_FRAMES = 20
+        self.SUN_INDEX_COUNT = self.SOLAR_BAND[0].size
+        self.SUN_INDEX = 0
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
         
@@ -233,8 +235,9 @@ class World:
         x_carts = x_carts / 20
         y_carts = y_carts / 20
         self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
+        self.DISTANCE_FROM_SUN = dist
         
-        return dist    
+        # return dist    
     
     
     def apply_pressure_winds(self):
@@ -387,12 +390,12 @@ class World:
         self.apply_coriolis_force()
         # WORLD.apply_centrifugal_force()
         
-        if count % WORLD.SUN_FRAMES == 0:
-            sun_index += 1
-            if sun_index == sun_index_count:
-                sun_index = 0
-            self.move_sun(sun_index)
-            return self.calc_solar_pressure_and_distance()
+        if count % self.SUN_FRAMES == 0:
+            self.SUN_INDEX += 1
+            if self.SUN_INDEX == self.SUN_INDEX_COUNT:
+                self.SUN_INDEX = 0
+            self.move_sun(self.SUN_INDEX)
+            self.calc_solar_pressure_and_distance()
 
     def sim_winds(self):
         # before draw
