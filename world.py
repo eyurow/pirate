@@ -381,7 +381,37 @@ class World:
         
     def impact_land(self):
         #self.PROP_CURRENTS[self.LAND[0],self.LAND[1]] = 0 
-        self.CURRENTS[self.LAND[0],self.LAND[1]] = 0     
+        self.CURRENTS[self.LAND[0],self.LAND[1]] = 0   
+
+    def sim_sun(self, count):
+        self.apply_coriolis_force()
+        # WORLD.apply_centrifugal_force()
+        
+        if count % WORLD.SUN_FRAMES == 0:
+            sun_index += 1
+            if sun_index == sun_index_count:
+                sun_index = 0
+            self.move_sun(sun_index)
+            return self.calc_solar_pressure_and_distance()
+
+    def sim_winds(self):
+        # before draw
+        self.apply_pressure_winds()
+        
+        self.set_wind_thetas()
+        self.propogate_array(array = 'winds')
+        self.set_winds()
+        self.apply_winds_to_currents()
+
+        self.impact_land()
+        self.set_current_thetas()  
+    
+    def sim_currents(self):
+        # after draw
+        self.propogate_array(array = 'currents')
+        self.set_currents()
+
+        self.apply_energy_loss()
         
         
 

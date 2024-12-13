@@ -398,77 +398,26 @@ def run():
         }
 
     while RUN:
-        #times['Key'] += clock.tick_busy_loop() / 1000
-        
-        ########################
-        ### SIMULATE WORLD ###
-        WORLD.apply_coriolis_force()
-        # WORLD.apply_centrifugal_force()
-        
-        if count % WORLD.SUN_FRAMES == 0:
-            sun_index += 1
-            if sun_index == sun_index_count:
-                sun_index = 0
-            WORLD.move_sun(sun_index)
-            sun_dist = WORLD.calc_solar_pressure_and_distance()
-        
-        ### Prop Winds and Set Current Thetas
-        '''
-        # OLD WINDS
-        WORLD.old_propogate_winds/pressure()
-        WORLD.set_current_thetas()
-        '''
-        WORLD.apply_pressure_winds()
-        
-        ## Set Winds
-        WORLD.set_wind_thetas()
-        WORLD.propogate_array(array = 'winds')
-        WORLD.set_winds()
-        WORLD.apply_winds_to_currents()
-        # #times['Prop Winds'] += clock.tick_busy_loop() / 1000
-
-        ## Set Current Thetas
-        WORLD.impact_land()
-        WORLD.set_current_thetas()
+        sun_dist = WORLD.sim_sun(count)
+        WORLD.sim_winds()
         times['Sim'] += clock.tick_busy_loop() / 1000
 
-        ####################
-        ### HANDLE INPUTS ###
         direction = INP_HANDLER.handle()
         if direction == 'quit':
             break
         times['Handle'] += clock.tick_busy_loop() / 1000
 
-        #####################
-        ### RENDER ###
         RENDERER.draw_world(sun_dist)
         times['Render'] += clock.tick_busy_loop() / 1000
-        
-        
-        ######################
-        ### SIMULATE WORLD ###
-        WORLD.propogate_array(array = 'currents')
-        WORLD.set_currents()
 
-        WORLD.apply_energy_loss()
-        # times['Sim2'] += clock.tick_busy_loop() / 1000
+        WORLD.sim_currents()
         
         count += 1
         
         if count == 1000:
             RENDERER.DRAW = fill_color_sun
         if count == 2000:
-            draw = 'sun'
-        if count == 3000:
-            draw = 'sun2'
-        if count == 4000:
-            draw = 'ind'
-        if count == 5000:
-            draw = 'red'
-        if count == 6000:
-            draw = 'blue'
-        if count == 7000:
-            run = False
+            RUN = False
             pygame.display.quit()
     return count, WORLD, times
             
@@ -476,7 +425,8 @@ def run():
         
 if __name__ == '__main__':
     countc, worldc, timesc = run()
-    avg = {k: v/countc for k, v in times.items()}
+    avg = {k: v/countc for k, v in timesc.items()}
+    print(avg)
 
 
 def save_land(world, name):
