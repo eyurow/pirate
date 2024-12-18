@@ -6,20 +6,19 @@ def test(PA):
     pygame.display.update()
 
 class Test:
-    def __init__(self, intt, ar):
-        self.intt = intt
-        self.ar = ar
+    v = 1
+    def __init__(self):
+        self.ar = np.arange(9).reshape((3,3))
 
-    def mi(self):
-        self.intt += 1
-    
-    def ma(self):
-        self.ar[1,1] = 10
+    @classmethod
+    def p(cls):
+        cls.v += 1
 
-    def mr(self):
-        global globi
-        globi += 5
-        globa[:2] = (3,3,3)
+    def __getitem__(self, key):
+        return self.ar[key]
+
+    def __setitem__(self, key, val):
+        self.ar[key] = val
 
 def run():
     global globi, globa
@@ -30,5 +29,10 @@ def run():
     print(globi, globa)
 
 if __name__ == '__main__':
-
-    run()
+    t = Test()
+    t.p()
+    t.v += 1
+    print(t.v)
+    Test.v = 10
+    b = Test()
+    print(b.v)

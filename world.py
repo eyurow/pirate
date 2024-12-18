@@ -132,6 +132,105 @@ class WindIndex:
     def __init__(self):
         pass
 
+
+class Particles:
+    def __init__(self, size, world, type = 'random'):
+        if type == 'random':
+            self.array = np.zeros((4,size), dtype = float)
+            self.array[0] = np.random.randint(0, world.SIZE[0], size)
+            self.array[1] = np.random.randint(0, world.SIZE[1], size)
+        elif type == 'grid':
+            # self.array = np.zeros((4,size), dtype = float)
+            grid = np.mgrid[20:world.SIZE[0] - 20:15, 20:world.SIZE[1]:20]
+            xs = grid[0].ravel()
+            ys = grid[1].ravel()
+            self.array = np.array([xs, ys, xs, ys], dtype = float)
+        self.type = type
+        self.world = world
+
+    def __getitem__(self, key):
+        return self.array[key]
+    def __setitem__(self, key, val):
+        self.array[key] = val
+
+    def particles_in_world(self):
+        return (self[0] >= 0)&(self[0] < self.world.SIZE[0])&(self[1] >= 0)&(self[1] < self.world.SIZE[1])
+
+    def sim_particles(self):
+        in_world = self.particles_in_world()
+        self.recycle(in_world)
+
+        asint = tuple(self[:2, in_world].astype(int))
+
+        self[0, in_world] += self.world.CURRENTS[(asint[0], asint[1], 0)] / 4 # propogate particle
+        self[1, in_world] += -self.world.CURRENTS[(asint[0], asint[1], 1)] / 4
+
+    def sim_particles_accelerating(self): # not workable now, index 2 and 3 repurposed for initial position
+        in_world = self.particles_in_world()
+        self.recycle(in_world)
+
+        asint = tuple(self[:2, in_world].astype(int))
+
+        self[2, in_world] += self.world.CURRENTS[(asint[0], asint[1], 0)] # add current to particle's vector
+        self[3, in_world] -= self.world.CURRENTS[(asint[0], asint[1], 1)]
+
+        self[2, (self[0] < 0)|(self[0] >= self.world.SIZE[0])] = -self[2, (self[0] < 0)|(self[0] >= self.world.SIZE[0])] # if particle is outside world, add partial vector to push back in
+        self[3, (self[1] < 0)|(self[1] >= self.world.SIZE[1])] = -self[3, (self[1] < 0)|(self[1] >= self.world.SIZE[1])]
+
+        self[0] += self[2] # propogate particle
+        self[1] += self[3]
+
+        self[2] -= self[2] * self.world.WIND_LOSS_FACTOR**2 # energy loss
+        self[3] -= self[3] * self.world.WIND_LOSS_FACTOR**2
+
+    def recycle(self, in_world):
+        # sun = self.world.SUN
+        # dist = np.sqrt((self[0]-sun[0])**2 + (self[1]-sun[1])**2)
+        # near_sun = dist < 15
+        # cut = ~in_world|near_sun
+        # self[0, cut] = np.random.randint(0, self.world.SIZE[0], cut.sum())
+        # self[1, cut] = np.random.randint(0, self.world.SIZE[1], cut.sum())
+        # self[2:, cut] = 0
+
+
+        clumped = self.detect_clumps_tuple()
+        cut = clumped[0][:clumped[0].size//2]
+
+        if self.type == 'random':
+            self[0, cut] = np.random.randint(0, self.world.SIZE[0], cut.size)
+            self[1, cut] = np.random.randint(0, self.world.SIZE[1], cut.size)
+            self[2:, cut] = 0
+        elif self.type == 'grid':
+            self[0, cut] = self[2, cut]
+            self[1, cut] = self[3, cut]
+
+    def detect_clumps_narrowdown(self, precision = 20, threshold = 15):
+        # grid = np.mgrid[:self.world.SIZE[0]:20, :self.world.SIZE[1]:20]
+        xs = self[0]//precision*precision
+        ys = self[1]//precision*precision
+
+        xu, xc = np.unique(xs, return_counts = True) # count of all binned x values
+        maxx = np.isin(xs, xu[xc >= threshold]) # indices where x's equal max count
+        maxxys = ys[maxx] # filter ys for max x
+        yu, yc = np.unique(maxxys, return_counts = True) # count of filtered ys
+        maxy = np.isin(ys, yu[yc >= threshold])
+
+        return np.where(maxx & maxy)
+    
+    def detect_clumps_tuple(self, precision = 20, threshold = 15):
+        xs = self[0]//precision*precision
+        ys = self[1]//precision*precision
+
+        # tuple arrays
+        # ar = np.empty((self[0].size), dtype = object)
+        ar = np.zeros((self[0].size), dtype = [('x', 'i'), ('y', 'i')])
+
+        ar['x'] = xs
+        ar['y'] = ys
+
+        np.unique(ar, return_counts = True)
+        u, c = np.unique(ar, return_counts = True)
+        return np.where(np.isin(ar,u[c >= threshold]))
     
 
 class World:

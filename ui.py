@@ -12,9 +12,38 @@ class Context:
         self.button_context = PositionContext(owner)
         self.hover_context = PositionContext(owner)
 
+class BaseContext:
+    def __init__(self, owner):
+        self.owner = owner
+        self.reset()
+        self.map_size = 0
+
+    def __str__(self):
+        return f"map: {self.map}, base: {self.base}, key: {self.key}, idx: {self.key_idx}, active: {self.active}"
+    
+    def reset(self):
+        self.map = np.zeros((self.map_size,0), dtype = int) # top-left (idx 0,1) and bottom-right (2,3) corner of component and component id (4)
+        self.base = np.zeros((self.map_size,0), dtype = int) # base layer of map - to be recovered when overlays deactivate
+        self.key = {}
+        self.key_idx = 0
+        self.base_idx = 0
+        self.active = []
+    
+    def store_base(self):
+        self.base = self.map.copy()
+        self.base_idx = self.key_idx
+
+    def restore_base(self):
+        self.map = self.base.copy()
+        self.key_idx = self.base_idx
+        self.active = []
+    
+        
+
 class PositionContext: # For button and hover maps
     def __init__(self, owner):
         self.owner = owner
+        self.map_size = 5
         self.reset()
 
     def __str__(self):
@@ -23,6 +52,48 @@ class PositionContext: # For button and hover maps
     def reset(self):
         self.map = np.zeros((5,0), dtype = int) # top-left (idx 0,1) and bottom-right (2,3) corner of component and component id (4)
         self.base = np.zeros((5,0), dtype = int) # base layer of map - to be recovered when overlays deactivate
+        self.key = {}
+        self.key_idx = 0
+        self.base_idx = 0
+        self.active = []
+
+    def store_base(self):
+        self.base = self.map.copy()
+        self.base_idx = self.key_idx
+
+    def restore_base(self):
+        self.map = self.base.copy()
+        self.key_idx = self.base_idx
+        self.active = []
+
+    def register_component(self, component):
+        # add top-left (0,1) and bottom-right (2,3) corners of rectangle (button, dropdown) and key (4)
+        # Most recently registered component at top of list
+
+        add = np.zeros((5, 1), dtype = int)
+        add[0] = self.owner.pos[0] + component.pos[0]
+        add[1] = self.owner.pos[1] + component.pos[1]
+        add[2] = self.owner.pos[0] + component.pos[0] + component.size[0]
+        add[3] = self.owner.pos[1] + component.pos[1] + component.size[1]
+        add[4] = self.key_idx
+
+        self.map = np.concatenate([add, self.map], axis = 1)
+        self.key[self.key_idx] = component
+        component.register_context(self.key_idx)
+
+        self.key_idx += 1
+
+class KeyContext:
+    def __init__(self, owner):
+        self.owner = owner
+        self.reset()
+
+    def __str__(self):
+        return f"map: {self.map}, base: {self.base}, key: {self.key}, idx: {self.key_idx}, active: {self.active}"
+        
+    def reset(self):
+        self.map = np.zeros((2,0), dtype = object) # top-left (idx 0,1) and bottom-right (2,3) corner of component and component id (4)
+        self.base = np.zeros((2,0), dtype = int) # base layer of map - to be recovered when overlays deactivate
         self.key = {}
         self.key_idx = 0
         self.base_idx = 0
@@ -79,12 +150,12 @@ class EscapeMenu():
         self.bcontext.reset()
 
         # TODO: set font size and button size
-        self.left_marg = int(self.renderer.PA.shape[0] * (1 - scale))
-        self.right_marg = int(self.renderer.PA.shape[0] * scale)
-        self.top_marg = int(self.renderer.PA.shape[1] * (1 - scale))
-        self.bot_marg = int(self.renderer.PA.shape[1] * scale)
+        self.left_marg = int(self.renderer.PA_SIZE[0] * (1 - scale))
+        self.right_marg = int(self.renderer.PA_SIZE[0] * scale)
+        self.top_marg = int(self.renderer.PA_SIZE[1] * (1 - scale))
+        self.bot_marg = int(self.renderer.PA_SIZE[1] * scale)
         self.size = (self.right_marg - self.left_marg, self.bot_marg - self.top_marg)
-        self.pos = (self.left_marg, self.top_marg)
+        self.pos = (self.left_marg, self.top_marg) # pa_pos
 
         # TODO: resize/position buttons
         self.generate_buttons()
@@ -110,6 +181,45 @@ class EscapeMenu():
     def generate_buttons(self):
         self.view_button.generate()
 
+
+class Rectangle:
+    def __init__(self, pos, size, color = None, border_color = (0,0,0), owner = None):
+        self.pos = pos # position relative to container 
+        self.size = size
+        self.color = color
+        self.border_color = border_color
+        self.owner = owner # pointer to container, e.g. EscapeMenu
+        self.generate()
+
+    def generate(self):
+        # self.size = new_size
+        # TODO: reset pa_pos
+        self.pa_pos = (self.owner.pa_pos[0] + self.pos[0], self.owner.pa_pos[1] + self.pos[1])
+
+
+class InfoBox(Rectangle):
+    size = (170,62)
+    font = pygame.font.SysFont('chicago', size = 15)
+    color = (100,100,100)
+    border_color = (0,0,0)
+    text_color = (255,255,255)
+
+    def __init__(self, owner, pos = (0,0)):
+        self.owner = owner
+        self.pos = pos
+        self.generate()
+
+    def generate_info(self, current_x, current_y, winds_x, winds_y, r, g, b):
+
+        self.xcurrents_text = sa.pixels2d(self.font.render(f'CURRENTS: {current_x:.2f}', 0, self.text_color))
+        self.ycurrents_text = sa.pixels2d(self.font.render(f'                    {current_y:.2f}', 0, self.text_color))
+        self.xwinds_text = sa.pixels2d(self.font.render(   f'WINDS:        {winds_x:.2f}', 0, self.text_color))
+        self.ywinds_text = sa.pixels2d(self.font.render(   f'                    {winds_y:.2f}', 0, self.text_color))
+        self.r_text = sa.pixels2d(self.font.render(        f'RED:          {r}', 0, self.text_color))
+        self.g_text = sa.pixels2d(self.font.render(        f'GREEEN:   {g}', 0, self.text_color))
+        self.b_text = sa.pixels2d(self.font.render(        f'BLUE:        {b}', 0, self.text_color))
+
+        # return xcurrents_text, ycurrents_text, xwinds_text, ywinds_text, r_text, g_text, b_text
 
 
 

@@ -1,7 +1,7 @@
-from world import World, Wind, WindGroup
+from world import World, Wind, WindGroup, Particles
 
 from vis import *
-from ui import EscapeMenu, Context
+from ui import EscapeMenu, Context, Rectangle, InfoBox
 from indices import get_pixel_indices
 from generics import get_margin
 import numpy as np
@@ -12,7 +12,7 @@ import pygame.surfarray as sa
 pygame.font.init()
 
 
-np.set_printoptions(precision = 2, threshold = 1600, suppress = True)
+np.set_printoptions(precision = 1, threshold = 1600, suppress = True)
 
 
 
@@ -112,9 +112,13 @@ class InputHandler:
         self.context = 'run'
         self.queue = []
         self.mouse_movement = False
+        self.lmb_mode = False
+        self.rmb_mode = False
         self.add_land = []
+        self.pa_pos = (0,0)
+        self.info_box = InfoBox(owner = self)
 
-    def default_handle(self, event):
+    def default_handle(self, event, mouse_press = None):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_f:
             self.renderer.set_draw(pa_fill_color)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
@@ -129,19 +133,72 @@ class InputHandler:
             self.renderer.set_draw(fill_ind_red)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
             self.renderer.set_draw(fill_fluc_blue)
+
+        elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 3): # or mouse_press[2] == 1:
+            pos = event.pos
+            world_pos = ( (pos[0] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_X.start, 
+                          (pos[1] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_Y.start )
+            
+            current_x = WORLD.CURRENTS[world_pos[0], world_pos[1], 0]
+            current_y = WORLD.CURRENTS[world_pos[0], world_pos[1], 1]
+            winds_x = WORLD.WINDS[world_pos[0], world_pos[1], 0]
+            winds_y = WORLD.WINDS[world_pos[0], world_pos[1], 1]
+            r = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 0]
+            g = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 1]
+            b = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 2]
+
+            self.info_box.pos = (pos[0] + 4 - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y)
+            self.info_box.generate()
+            self.info_box.generate_info(current_x, current_y, winds_x, winds_y, r, g, b)
+            print(pos, self.info_box.pa_pos, world_pos)
+            
+            self.renderer.add_post(self.renderer.draw_info_box, self.info_box)
+            # self.rmb_mode = 'info'
         
-        elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (event.type == pygame.MOUSEMOTION and self.mouse_movement):
+        elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
             modified_pos = (event.pos[0] - self.renderer.START_PIXEL_X + self.renderer.WORLD_SLICER_X.start * self.renderer.CELL_SIZE,
                             event.pos[1] - self.renderer.START_PIXEL_Y + self.renderer.WORLD_SLICER_Y.start * self.renderer.CELL_SIZE)
             same_pos_size = WORLD.LAND[:, (WORLD.LAND[0] == modified_pos[0]//self.renderer.CELL_SIZE)& 
-                                        (WORLD.LAND[1] == modified_pos[1]//self.renderer.CELL_SIZE)].size
+                                          (WORLD.LAND[1] == modified_pos[1]//self.renderer.CELL_SIZE)].size
             if same_pos_size == 0 and modified_pos not in self.add_land:
                 self.add_land.append(modified_pos)
-            self.mouse_movement = True
+            self.lmb_mode = 'add land'
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             add_land_array = np.array(self.add_land).T // self.renderer.CELL_SIZE
             WORLD.LAND = np.concatenate([WORLD.LAND, add_land_array], axis = 1) #, dtype = int)
-            self.mouse_movement = False
+            self.lmb_mode = False
+
+    def end_handle(self, mouse_press):
+        if mouse_press[2] == 1: # and self.rmb_mode == 'info':
+            pos = pygame.mouse.get_pos()
+            world_pos = ( (pos[0] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_X.start, 
+                          (pos[1] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_Y.start )
+            
+            current_x = WORLD.CURRENTS[world_pos[0], world_pos[1], 0]
+            current_y = WORLD.CURRENTS[world_pos[0], world_pos[1], 1]
+            winds_x = WORLD.WINDS[world_pos[0], world_pos[1], 0]
+            winds_y = WORLD.WINDS[world_pos[0], world_pos[1], 1]
+            r = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 0]
+            g = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 1]
+            b = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 2]
+
+            self.info_box.pos = (pos[0] + 4 - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y)
+            self.info_box.generate()
+            self.info_box.generate_info(current_x, current_y, winds_x, winds_y, r, g, b)
+            print(pos, self.info_box.pa_pos, world_pos)
+            
+            self.renderer.add_post(self.renderer.draw_info_box, self.info_box)
+            # self.rmb_hold = True
+        
+        if mouse_press[0] == 1 and self.lmb_mode == 'add land':
+            pos = pygame.mouse.get_pos()
+            modified_pos = (pos[0] - self.renderer.START_PIXEL_X + self.renderer.WORLD_SLICER_X.start * self.renderer.CELL_SIZE,
+                            pos[1] - self.renderer.START_PIXEL_Y + self.renderer.WORLD_SLICER_Y.start * self.renderer.CELL_SIZE)
+            
+            same_pos_size = WORLD.LAND[:, (WORLD.LAND[0] == modified_pos[0]//self.renderer.CELL_SIZE)& 
+                                          (WORLD.LAND[1] == modified_pos[1]//self.renderer.CELL_SIZE)].size
+            if same_pos_size == 0 and modified_pos not in self.add_land:
+                self.add_land.append(modified_pos)
 
     
     def handle(self):
@@ -160,6 +217,7 @@ class InputHandler:
                 case 'run':
                     handling = False # set to False, will be intercepted below if need be (quit, EscapeMenu, pause)
                     events = pygame.event.get()
+                    mouse_press = pygame.mouse.get_pressed()
                     # for event in events:
                     for _ in range(len(events)):
                         event = events.pop(0)
@@ -174,7 +232,9 @@ class InputHandler:
                             handling = True
 
                         else:
-                            self.default_handle(event)
+                            self.default_handle(event, mouse_press)
+                    
+                    self.end_handle(mouse_press)
                             
                 case 'pause':
                     waiting = True
@@ -199,7 +259,7 @@ class InputHandler:
                             handling = False
                         
                         else:
-                            self.default_handle(event)
+                            self.default_handle(event, mouse_press = [])
 
 
                 case 'escape menu':
@@ -217,7 +277,7 @@ class InputHandler:
                             waiting = False
                             handling = False
                         
-                        elif event.type == pygame.MOUSEBUTTONDOWN:
+                        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                             pos = (event.pos[0] - self.renderer.START_PIXEL_X, event.pos[1] - self.renderer.START_PIXEL_Y)
                             ctx = ESC_MENU.context.button_context
                             check = ctx.map[4, (ctx.map[0] <= pos[0])&(ctx.map[1] <= pos[1])&(ctx.map[2] >= pos[0])&(ctx.map[3] >= pos[1])] # return any buttons on context map where click was within button borders
@@ -249,6 +309,7 @@ class Screen:
         self.WIN = None
         self.WIDTH = width
         self.HEIGHT = height
+        # self.world = world
         self.init_window(width, height)
 
     def init_window(self, width, height):
@@ -257,10 +318,6 @@ class Screen:
     def update_display(self):
         pygame.display.update()
 
-    
-
-
-
 class Renderer:
     def __init__(self, screen, cell_size):
         self.screen = screen
@@ -268,12 +325,15 @@ class Renderer:
         # self.WIDTH = None
         # self.HEIGHT = None
         self.CELL_SIZE = cell_size
-        self.DRAW = fill_ind_colors
         # self.world = world  --  if moved out of main will need to tie to world here
         self.WORLD_SLICER_X = slice(0, WORLD.SIZE[0])
         self.WORLD_SLICER_Y = slice(0, WORLD.SIZE[0])
         self.START_PIXEL_X = 0
         self.START_PIXEL_Y = 0
+        self.pa_pos = (0,0)
+
+        self.DRAW = fill_ind_colors
+        self.post = []
 
     def refresh_PA(self):
         self.PA = sa.pixels3d(self.screen.WIN)
@@ -286,7 +346,13 @@ class Renderer:
         self.DRAW(self.PA, WORLD.THETAS[self.WORLD_SLICER_X, self.WORLD_SLICER_Y, 1], WORLD.DISTANCE_FROM_SUN[self.WORLD_SLICER_X, self.WORLD_SLICER_Y], self.CELL_SIZE, WORLD.SIZE)
         draw_land(self.PA, WORLD.LAND, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
         draw_sun(self.PA, WORLD.SUN, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y))
-        self.update_display()
+        # self.update_display()
+
+    def draw_post(self):
+        for item in self.post:
+            func = item[0]
+            func(*item[1:])
+
 
     def draw_menu(self, menu):
         # screen_blur(PA)
@@ -308,6 +374,47 @@ class Renderer:
         elif button.type == 'text':
             self.PA[(menu_pos[0] + button.pos[0] + button.text_ind[0], menu_pos[1] + button.pos[0] + button.text_ind[1])] = button.text_color
 
+    def draw_particles(self, particles):
+        draw_particles(self.PA, particles, self.PA_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y), (self.START_PIXEL_X, self.START_PIXEL_Y))
+
+    
+    def draw_rectangle(self, rect):
+        if rect.color:
+            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.color
+        if rect.border_color:
+            self.PA[rect.pa_pos[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+            self.PA[rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]] = rect.border_color
+            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
+
+    def draw_info_box(self, info_box):
+        if info_box.pa_pos[0] + info_box.size[0] >= self.PA_SIZE[0]:
+            info_box.pa_pos = (info_box.pa_pos[0] - info_box.size[0], info_box.pa_pos[1])
+        if info_box.pa_pos[1] + info_box.size[1] >= self.PA_SIZE[1]:
+            info_box.pa_pos = (info_box.pa_pos[0], info_box.pa_pos[1] - info_box.size[1])
+        
+        self.draw_rectangle(info_box)
+
+        row = 4
+        for info in [info_box.xcurrents_text, info_box.ycurrents_text, info_box.xwinds_text, info_box.ywinds_text]:
+            idx = np.where(info == 1)
+            adjusted = (idx[0] + info_box.pa_pos[0] + 5, idx[1] + info_box.pa_pos[1] + row)
+            self.PA[adjusted] = info_box.text_color
+            row += 15
+
+        row = 10
+        for info in [info_box.r_text, info_box.g_text, info_box.b_text]:
+            idx = np.where(info == 1)
+            adjusted = (idx[0] + info_box.pa_pos[0] + 95, idx[1] + info_box.pa_pos[1] + row)
+            self.PA[adjusted] = info_box.text_color
+            row += 15
+
+    
+    def add_post(self, func, *args):
+        self.post.append((func, *args))
+
+    def clear_post(self):
+        self.post = []
 
     
     def set_pixelarray(self):
@@ -355,10 +462,11 @@ class Renderer:
             self.START_PIXEL_Y = 0
             self.WORLD_SLICER_Y = slice(0, WORLD.SIZE[1])
 
+        self.PA_SIZE = self.PA.shape[:2]
+
     def update_display(self):
         self.screen.update_display()
     
-
 
             
 WIDTH, HEIGHT = (1200,600)
@@ -366,7 +474,7 @@ CELL_SIZE = 3
 PA = None
 
 def run():
-    global WORLD, RUN, ESC_MENU
+    global WORLD, RUN, ESC_MENU, RENDERER
 
     pygame.init()
     WORLD = World((500,300), 16) # 100,60
@@ -376,6 +484,7 @@ def run():
                                   (WORLD.LAND[0] >= 0)&
                                   (WORLD.LAND[1] < WORLD.SIZE[1])&
                                   (WORLD.LAND[1] >= 0)]
+    particles = Particles(500, WORLD, type = 'grid')
 
     SCREEN = Screen(WIDTH, HEIGHT)
     RENDERER = Renderer(SCREEN, CELL_SIZE)
@@ -396,10 +505,14 @@ def run():
         'Handle':0,
         'Render':0
         }
+    WORLD.CURRENTS[0,150,0] = 0
+    WORLD.CURRENTS[0,150,1] = 50
 
     while RUN:
         WORLD.sim_sun(count)
         WORLD.sim_winds()
+
+        particles.sim_particles()
         times['Sim'] += clock.tick_busy_loop() / 1000
 
         direction = INP_HANDLER.handle()
@@ -408,12 +521,20 @@ def run():
         times['Handle'] += clock.tick_busy_loop() / 1000
 
         RENDERER.draw_world()
+        RENDERER.draw_particles(particles)
+        RENDERER.draw_post()
+        SCREEN.update_display()
+        RENDERER.clear_post()
         times['Render'] += clock.tick_busy_loop() / 1000
 
         WORLD.sim_currents()
         
         count += 1
-        
+
+        # WORLD.set_current_thetas()
+        # sum = WORLD.THETAS[:,:,1].sum()
+        # print(sum)
+
         if count == 1000:
             RENDERER.DRAW = fill_color_sun
         if count == 2000:

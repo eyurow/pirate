@@ -2,6 +2,7 @@ from generics import vector_length, DBZ, normalize_angles, normal_compare_angles
 from indices import index_shape, get_start_pixels, get_pixel_indices
 from textures.triangles_indices import angle_triangle_map
 from textures.str_map import angle_triangle_mapp
+from textures.textures import particle
 import numpy as np
 
 import pygame
@@ -248,11 +249,12 @@ def fill_ind_colors(pa, strengths, distance, cell_size, ref_size = (400,200)):
 def fill_ind_red(pa, strengths, distance, cell_size, ref_size = (400,200)):
     adjusted_strength = np.arctan(strengths) / (np.pi/2)
     adjusted_distance = distance / np.sqrt(ref_size[0]**2 + ref_size[1]**2) #np.sqrt(300**2 + 300**2)
+
+    base_blue = 230 * (1 - adjusted_strength) * (1 - adjusted_distance)**2 * ( np.minimum(.07,np.absolute(.52 - adjusted_distance)) / .07)
     
-    base_blue = 30 + ( 200 * (1 - adjusted_strength) * (1 - adjusted_distance)**1 )
-    
-    base_green = base_blue * 1.1 * (1 - adjusted_distance)
-    base_red = np.maximum(0, 120 * np.sin(8 * adjusted_distance - 2.4) * (1 - adjusted_strength))
+    base_green = 300 * (1 - adjusted_strength) * (.9 - adjusted_distance)**2 * ( np.minimum(.07,np.absolute(.58 - adjusted_distance)) / .07)
+    # base_red = 60 * (1 - adjusted_strength) * (1 - np.absolute(.55 - adjusted_distance))**7
+    base_red = 50 * (1 - adjusted_strength) * (1 - np.absolute(.55 - adjusted_distance))**7
     
     blue_big = np.repeat(np.repeat(base_blue, cell_size, axis = 1), cell_size, axis = 0) 
     green_big = np.repeat(np.repeat(base_green, cell_size, axis = 1), cell_size, axis = 0) 
@@ -412,7 +414,6 @@ def draw_land(pa, land, cell_size, world_slicers, color = (255,0,0)):
     pixels = get_pixel_indices(start_pixels, cell_size)
     
     pa[pixels] = color
-    
 
 def draw_sun(pa, sun, cell_size, world_slicers, color = (200,100,100)):
     if sun[0] >= world_slicers[0].start and sun[1] < world_slicers[0].stop \
@@ -425,7 +426,36 @@ def draw_sun(pa, sun, cell_size, world_slicers, color = (200,100,100)):
                           start_pixels[1]:start_pixels[1] + cell_size]
         
         pa[(pixels[0], pixels[1])] = color
+
+def draw_particles(pa, particles, pa_size, world_slicers, start_pixels, color = (0,0,0)):
+    world_idx = particles[:2,   (particles[0] >= world_slicers[0].start)&
+                                (particles[0] < world_slicers[0].stop)&
+                                (particles[1] >= world_slicers[1].start)&
+                                (particles[1] < world_slicers[1].stop)]
+    # print('WORLD_IDX 1: ', world_idx.T)
+    world_idx[0] -= world_slicers[0].start # Get world index zerod on displayed world
+    world_idx[1] -= world_slicers[1].start
+    # print('WORLD_IDX 2: ', world_idx.T)
     
+    draw_idx = world_idx * 3 # convert to pixel index
+    # print('DRAW_IDX 1: ', draw_idx.T)
+
+    draw_idx[0] -= start_pixels[0]
+    draw_idx[1] -= start_pixels[1]
+    # print('DRAW_IDX 2: ', draw_idx.T)
+
+    texture = particle()
+    pixels = (  index_shape(draw_idx[0], texture[0]).ravel(), 
+                index_shape(draw_idx[1], texture[1]).ravel() )
+    on_screen = (pixels[0] >= 0)&(pixels[0] < pa_size[0])&(pixels[1] >= 0)&(pixels[1] < pa_size[1])
+
+    
+    asint = (pixels[0][on_screen].astype(int), pixels[1][on_screen].astype(int))
+    # print('DRAW_IDX 3: ', draw_idx.astype(int).T)
+    # print('_____________________________')
+    pa[asint] = (0,0,0)
+
+
 
     
     
