@@ -521,8 +521,8 @@ class World:
 
 
     
+
 if __name__ == '__main__': 
-    
     world = World((300,300), 2)
     #world.LAND[...] = [[4],[6]]
     #world.WINDS[4,7,1] = 10
@@ -533,9 +533,5 @@ if __name__ == '__main__':
     #         sun_index = 0
     #     world.move_sun(sun_index)
     
-    
 
-    
-    
-            
 
