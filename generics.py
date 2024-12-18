@@ -21,6 +21,16 @@ def DBZ(n, d, handle = 0):
     else:
         return n / d
         
+def get_margin(outer_size, inner_size):
+    '''
+    INPUT: outer and inner container sizes; e.g. outer is screen size of 1221, inner is WORLD-pixel size of 1200 (300*4)
+    OUTPUT: excess units at start and end of outer container; e.g. 10 and 11 pixels in above example as the screen has 21 more pixels than the WORLD requires to render
+    '''
+    margin = outer_size - inner_size
+    start = margin // 2
+    end = margin - start
+    return start, end
+
     
 ## Trig
 def vector_length(x, y):
@@ -44,6 +54,61 @@ def theta_to_cartesian(thetas, fill = None):
     if fill:
         pass
     return cartesians
+
+def calc_normal_carts_to_position(index, position, handle = 1, return_distance = False):
+    distance = np.sqrt((position[0] - index[0])**2 + (index[1] - position[1])**2)
+    distance[distance == 0] = handle
+    x = (position[0] - index[0]) / distance
+    y = (index[1] - position[1]) / distance
+    if return_distance:
+        return x, y, distance
+    else:
+        return x, y
+
+def generate_circle(radius = 5, offset = (0,0)):
+    x = radius 
+    y = 0
+    
+    xs = []
+    ys = []
+    while y <= x:
+        if (x**2) + (y**2) <= radius**2:
+            xs.append(x)
+            ys.append(y)
+            y += 1
+        else:
+            x -= 1
+            xs.append(x)
+            ys.append(y)
+            y += 1
+    
+    oct_len = len(xs)
+    arr = np.empty((2, oct_len * 8), dtype = int)
+    arr[0, :oct_len] = xs
+    arr[1, :oct_len] = ys
+    
+    arr[0, oct_len:2*oct_len] = ys[::-1] #arr[1, :oct_len] # second octant
+    arr[1, oct_len:2*oct_len] = xs[::-1] #arr[0, :oct_len]
+    
+    arr[0, 2*oct_len:4*oct_len] = np.flip(-arr[0, :2*oct_len]) # second quadrant
+    arr[1, 2*oct_len:4*oct_len] = np.flip(arr[1, :2*oct_len])
+    
+    arr[0, 4*oct_len:8*oct_len] = np.flip(arr[0, :4*oct_len]) # second half
+    arr[1, 4*oct_len:8*oct_len] = np.flip(-arr[1, :4*oct_len])
+    
+    arr[0] += int(offset[0])
+    arr[1] += int(offset[1])
+    
+    return arr
+
+def generate_thick_circle(radius = 5, thick = 2, offset = (0,0)):
+    outer = generate_circle(radius = radius, offset = offset)
+    for x in range(1, thick):
+        append = generate_circle(radius = radius - x, offset = offset)
+        outer = np.concatenate([outer, append], axis = 1, dtype = int)
+    outer = np.unique(outer, axis = 1)
+        
+    return outer
 
 
 
