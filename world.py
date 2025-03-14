@@ -1,4 +1,5 @@
-from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length, generate_circle, generate_thick_circle
+from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
+from shapes import generate_circle, generate_thick_circle
 from indices import get_indices_within_bounds
 import numpy as np
 
@@ -239,10 +240,13 @@ class World:
         self.CENTER = (self.SIZE[0]/2, self.SIZE[1]/2)
         self.LAND = np.zeros((2,land_size), dtype = int) # x, y indices
         self.SEA = []
-        #self.SUN_INDEX = generate_circle(round(self.SIZE[1]/2 * .7), (self.SIZE[0]/2, self.SIZE[1]/2))[:, 1:]
         
-        #self.SUN = (self.SUN_INDEX[0][0],self.SUN_INDEX[1][0]) # 80,80 world
-        
+        self.WIND_STRESS_FACTOR = .03
+        self.CURRENT_LOSS_FACTOR = .07
+        self.WIND_LOSS_FACTOR = .2
+        self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
+        self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
+
         self.WIND_SEEDS = []
         self.WINDS = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         self.CURRENTS = np.zeros((self.SIZE[0], self.SIZE[1], 2))
@@ -252,6 +256,7 @@ class World:
         # self.THETA_MASK = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         self.MGRID = np.mgrid[:self.SIZE[0], :self.SIZE[1]]
         
+        self.CALC_STANDARD_STRENGTH_UNIT()
         self.GENERATE_PRESSURE_BANDS()
         self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
         self.SUN_FRAMES = 20
@@ -260,20 +265,15 @@ class World:
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
         
-        self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .07
-        self.WIND_LOSS_FACTOR = .2
-        self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
-        self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
-        
-        self.CALC_STANDARD_STRENGTH_UNIT()
+
+  
         
         self.count = 1
         
     
     def CALC_STANDARD_STRENGTH_UNIT(self):
         # Current strength magnitude needed to cross 1/10th the vertical diameter with strength of 1 remaining
-        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - self.WIND_LOSS_FACTOR)**(self.SIZE[1])
+        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - self.WIND_LOSS_FACTOR)**(self.SIZE[1]/10)
         
 
     def CALC_ROTATIONAL_FORCES(self):
@@ -299,20 +299,20 @@ class World:
     def GENERATE_PRESSURE_BANDS(self):
         POLAR_BAND = generate_thick_circle(max(round(self.SIZE[1]/2 * .03), 2), 2, (self.CENTER[0], self.CENTER[1]))
         x_carts, y_carts = calc_normal_carts_to_position(POLAR_BAND, ( self.CENTER[0], self.CENTER[1] ))
-        x_carts = -x_carts * 20
-        y_carts = -y_carts * 20
+        x_carts = -x_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 40
+        y_carts = -y_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 40
         self.POLAR_BAND = (POLAR_BAND, np.array([x_carts, y_carts]))
         
         INNER_POLAR_BAND = generate_thick_circle(round(self.SIZE[1]/2 * .53), 2, (self.CENTER[0], self.CENTER[1]))
         x_carts, y_carts = calc_normal_carts_to_position(INNER_POLAR_BAND, ( self.CENTER[0], self.CENTER[1] ))
-        x_carts = x_carts * 3
-        y_carts = y_carts * 3
+        x_carts = x_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 250
+        y_carts = y_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 250
         self.INNER_POLAR_BAND = (INNER_POLAR_BAND, np.array([x_carts, y_carts]))
         
         INNER_EQ_BAND = generate_thick_circle(round(self.SIZE[1]/2 * .53) + 2, 2, (self.CENTER[0], self.CENTER[1]))
         x_carts, y_carts = calc_normal_carts_to_position(INNER_EQ_BAND, ( self.CENTER[0], self.CENTER[1] ))
-        x_carts = -x_carts * 5
-        y_carts = -y_carts * 5
+        x_carts = -x_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 160
+        y_carts = -y_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 160
         self.INNER_EQ_BAND = (INNER_EQ_BAND, np.array([x_carts, y_carts]))
         
         #OUTER_HI_PRS_BAND = generate_thick_circle(round(self.SIZE[0]/2 * .8), 2, (self.SIZE[0]/2, self.SIZE[1]/2))
@@ -322,17 +322,17 @@ class World:
         order.sort()
         self.SOLAR_BAND = solar_indices[:, order]
 
-    def calc_solar_pressure(self):
-        x_carts, y_carts = calc_normal_carts_to_position(self.MGRID, ( self.SUN[0], self.SUN[1] ))
-        x_carts = x_carts / 20
-        y_carts = y_carts / 20
-        self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
+    # def calc_solar_pressure(self):
+    #     x_carts, y_carts = calc_normal_carts_to_position(self.MGRID, ( self.SUN[0], self.SUN[1] ))
+    #     x_carts = x_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 20 
+    #     y_carts = y_carts * self.STANDARD_CURRENT_STRENGTH_LEVEL / 20
+    #     self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
         
     def calc_solar_pressure_and_distance(self):
         x_carts, y_carts, dist = calc_normal_carts_to_position(self.MGRID, ( self.SUN[0], self.SUN[1] ), return_distance = True)
         
-        x_carts = x_carts / 20
-        y_carts = y_carts / 20
+        x_carts = x_carts / (self.STANDARD_CURRENT_STRENGTH_LEVEL / 40)
+        y_carts = y_carts / (self.STANDARD_CURRENT_STRENGTH_LEVEL / 40)
         self.SOLAR_PRESSURE = np.array([x_carts, y_carts])
         self.DISTANCE_FROM_SUN = dist
         

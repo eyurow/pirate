@@ -4,6 +4,7 @@ from vis import *
 from ui import EscapeMenu, Context, Rectangle, InfoBox
 from indices import get_pixel_indices
 from generics import get_margin
+from shapes import generate_line, generate_patterned_line, generate_perpendicular_line
 import numpy as np
 import json
 
@@ -118,6 +119,29 @@ class InputHandler:
         self.pa_pos = (0,0)
         self.info_box = InfoBox(owner = self)
 
+    def generate_info_box(self, pos):
+        world_pos = ( (pos[0] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_X.start, 
+                          (pos[1] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_Y.start )
+            
+        current_x = WORLD.CURRENTS[world_pos[0], world_pos[1], 0]
+        current_y = WORLD.CURRENTS[world_pos[0], world_pos[1], 1]
+        winds_x = WORLD.WINDS[world_pos[0], world_pos[1], 0]
+        winds_y = WORLD.WINDS[world_pos[0], world_pos[1], 1]
+        r = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 0]
+        g = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 1]
+        b = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 2]
+
+        posx, posy = pos[0] + 4 - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y
+        if posx + self.info_box.size[0] >= self.renderer.PA_SIZE[0]:
+            posx = posx - self.info_box.size[0]
+        if posy + self.info_box.size[1] >= self.renderer.PA_SIZE[1]:
+            posy = posy - self.info_box.size[1]
+    
+        self.info_box.generate((posx, posy))
+        self.info_box.generate_info(current_x, current_y, winds_x, winds_y, r, g, b) # TODO: call generate info from generate??
+        
+        self.renderer.add_post(self.renderer.draw_info_box, self.info_box)
+
     def default_handle(self, event, mouse_press = None):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_f:
             self.renderer.set_draw(pa_fill_color)
@@ -135,25 +159,7 @@ class InputHandler:
             self.renderer.set_draw(fill_fluc_blue)
 
         elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 3): # or mouse_press[2] == 1:
-            pos = event.pos
-            world_pos = ( (pos[0] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_X.start, 
-                          (pos[1] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_Y.start )
-            
-            current_x = WORLD.CURRENTS[world_pos[0], world_pos[1], 0]
-            current_y = WORLD.CURRENTS[world_pos[0], world_pos[1], 1]
-            winds_x = WORLD.WINDS[world_pos[0], world_pos[1], 0]
-            winds_y = WORLD.WINDS[world_pos[0], world_pos[1], 1]
-            r = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 0]
-            g = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 1]
-            b = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 2]
-
-            self.info_box.pos = (pos[0] + 4 - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y)
-            self.info_box.generate()
-            self.info_box.generate_info(current_x, current_y, winds_x, winds_y, r, g, b)
-            print(pos, self.info_box.pa_pos, world_pos)
-            
-            self.renderer.add_post(self.renderer.draw_info_box, self.info_box)
-            # self.rmb_mode = 'info'
+            self.generate_info_box(event.pos)
         
         elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
             modified_pos = (event.pos[0] - self.renderer.START_PIXEL_X + self.renderer.WORLD_SLICER_X.start * self.renderer.CELL_SIZE,
@@ -170,25 +176,7 @@ class InputHandler:
 
     def end_handle(self, mouse_press):
         if mouse_press[2] == 1: # and self.rmb_mode == 'info':
-            pos = pygame.mouse.get_pos()
-            world_pos = ( (pos[0] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_X.start, 
-                          (pos[1] - self.renderer.START_PIXEL_X) // self.renderer.CELL_SIZE + self.renderer.WORLD_SLICER_Y.start )
-            
-            current_x = WORLD.CURRENTS[world_pos[0], world_pos[1], 0]
-            current_y = WORLD.CURRENTS[world_pos[0], world_pos[1], 1]
-            winds_x = WORLD.WINDS[world_pos[0], world_pos[1], 0]
-            winds_y = WORLD.WINDS[world_pos[0], world_pos[1], 1]
-            r = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 0]
-            g = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 1]
-            b = self.renderer.PA[pos[0] - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y, 2]
-
-            self.info_box.pos = (pos[0] + 4 - self.renderer.START_PIXEL_X, pos[1] - self.renderer.START_PIXEL_Y)
-            self.info_box.generate()
-            self.info_box.generate_info(current_x, current_y, winds_x, winds_y, r, g, b)
-            print(pos, self.info_box.pa_pos, world_pos)
-            
-            self.renderer.add_post(self.renderer.draw_info_box, self.info_box)
-            # self.rmb_hold = True
+            self.generate_info_box(pygame.mouse.get_pos())
         
         if mouse_press[0] == 1 and self.lmb_mode == 'add land':
             pos = pygame.mouse.get_pos()
@@ -221,7 +209,6 @@ class InputHandler:
                     # for event in events:
                     for _ in range(len(events)):
                         event = events.pop(0)
-
                         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                             ESC_MENU.display()
                             self.context = 'escape menu'
@@ -230,10 +217,8 @@ class InputHandler:
                         elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                             self.context = 'pause'
                             handling = True
-
                         else:
                             self.default_handle(event, mouse_press)
-                    
                     self.end_handle(mouse_press)
                             
                 case 'pause':
@@ -243,12 +228,10 @@ class InputHandler:
                             event = events.pop(0)
                         else:
                             event = pygame.event.wait()
-
                         if event.type == pygame.QUIT:
                             return self.quit()
                         elif event.type in [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
                             self.resize()
-                        
                         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                             ESC_MENU.display()
                             self.context = 'escape menu'
@@ -257,10 +240,8 @@ class InputHandler:
                             self.context = 'run'
                             waiting = False
                             handling = False
-                        
                         else:
                             self.default_handle(event, mouse_press = [])
-
 
                 case 'escape menu':
                     waiting = True
@@ -288,8 +269,6 @@ class InputHandler:
                                 if ESC_MENU.bcontext.active:
                                     ESC_MENU.refresh_base()
                 
-
-
     def quit(self):
         global RUN
         RUN = False
@@ -299,7 +278,7 @@ class InputHandler:
     def resize(self):
         self.renderer.refresh_PA()
         self.renderer.set_pixelarray()
-        ESC_MENU.resize()        
+        ESC_MENU.generate(pos = ((self.renderer.PA_SIZE[0] - 1000)//2, (self.renderer.PA_SIZE[1] - 550)//2))        
 
 
 
@@ -322,8 +301,7 @@ class Renderer:
     def __init__(self, screen, cell_size):
         self.screen = screen
         self.PA = None
-        # self.WIDTH = None
-        # self.HEIGHT = None
+        self.PA_SIZE = (0,0)
         self.CELL_SIZE = cell_size
         # self.world = world  --  if moved out of main will need to tie to world here
         self.WORLD_SLICER_X = slice(0, WORLD.SIZE[0])
@@ -331,9 +309,11 @@ class Renderer:
         self.START_PIXEL_X = 0
         self.START_PIXEL_Y = 0
         self.pa_pos = (0,0)
-
-        self.DRAW = fill_ind_colors
+        self.DRAW = fill_color_light
         self.post = []
+
+        self.refresh_PA()
+        self.set_pixelarray()
 
     def refresh_PA(self):
         self.PA = sa.pixels3d(self.screen.WIN)
@@ -363,16 +343,9 @@ class Renderer:
         self.PA[menu.left_marg:menu.right_marg, menu.bot_marg] = (0,0,0)
 
     def draw_button(self, button, menu_pos = (0,0)):
-        if button.type == 'array':
-            self.PA[menu_pos[0] + button.pos[0]:menu_pos[0] + button.pos[0] + button.size[0], 
-                    menu_pos[1] + button.pos[1]:menu_pos[1] + button.pos[1] + button.size[1]] = button.array
-            
-        elif button.type == 'index':
-            self.PA[(menu_pos[0] + button.pos[0] + button.text_ind[0], menu_pos[1] + button.pos[0] + button.text_ind[1])] = button.text_color
-            self.PA[(menu_pos[0] + button.border_ind[0], menu_pos[1] + button.border_ind[1])] = button.border_color
-
-        elif button.type == 'text':
-            self.PA[(menu_pos[0] + button.pos[0] + button.text_ind[0], menu_pos[1] + button.pos[0] + button.text_ind[1])] = button.text_color
+        self.draw_rectangle(button)
+        if button.text:
+            self.PA[(button.pa_pos[0] + button.text_ind[0], button.pa_pos[1] + button.text_ind[1])] = button.text_color
 
     def draw_particles(self, particles):
         draw_particles(self.PA, particles, self.PA_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y), (self.START_PIXEL_X, self.START_PIXEL_Y))
@@ -388,11 +361,6 @@ class Renderer:
             self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
 
     def draw_info_box(self, info_box):
-        if info_box.pa_pos[0] + info_box.size[0] >= self.PA_SIZE[0]:
-            info_box.pa_pos = (info_box.pa_pos[0] - info_box.size[0], info_box.pa_pos[1])
-        if info_box.pa_pos[1] + info_box.size[1] >= self.PA_SIZE[1]:
-            info_box.pa_pos = (info_box.pa_pos[0], info_box.pa_pos[1] - info_box.size[1])
-        
         self.draw_rectangle(info_box)
 
         row = 4
@@ -409,6 +377,23 @@ class Renderer:
             self.PA[adjusted] = info_box.text_color
             row += 15
 
+        idx = info_box.currents_compass
+        adjusted = (idx[0] + info_box.pa_pos[0], idx[1] + info_box.pa_pos[1])
+        self.PA[adjusted] = (0,0,0)
+
+        idx = info_box.current_line
+        adjusted = (idx[0] + info_box.pa_pos[0], idx[1] + info_box.pa_pos[1])
+        self.PA[adjusted] = (50,150,175)
+
+    def draw_line(self, p1, p2, thick, thick_quotient = .5, thick_offset = -1, num_lines = 1, even_offset = 0, color = (0,0,0)):
+        line = generate_line(p1, p2, thick, thick_quotient, thick_offset, num_lines, even_offset)
+        self.PA[tuple(line)] = color
+    def draw_perp_line(self, p1, p2, thick, color = (0,0,0)):
+        line = generate_perpendicular_line(p1, p2, thick)
+        self.PA[tuple(line)] = color
+    def draw_patterned_line(self, p1, p2, thick, color = (0,0,0)):
+        line = generate_patterned_line(p1, p2, thick)
+        self.PA[tuple(line)] = color
     
     def add_post(self, func, *args):
         self.post.append((func, *args))
@@ -489,12 +474,8 @@ def run():
     SCREEN = Screen(WIDTH, HEIGHT)
     RENDERER = Renderer(SCREEN, CELL_SIZE)
     INP_HANDLER = InputHandler(SCREEN, RENDERER)
-    ESC_MENU = EscapeMenu(RENDERER)
+    ESC_MENU = EscapeMenu(owner = RENDERER, pos = ((RENDERER.PA_SIZE[0] - 1000)//2, (RENDERER.PA_SIZE[1] - 550)//2))
     RUN = True
-
-    RENDERER.refresh_PA()
-    RENDERER.set_pixelarray()
-    ESC_MENU.resize()
 
     count = 0
     sun_index_count = WORLD.SOLAR_BAND[0].size
@@ -507,7 +488,7 @@ def run():
         }
     WORLD.CURRENTS[0,150,0] = 0
     WORLD.CURRENTS[0,150,1] = 50
-
+    print(WORLD.STANDARD_CURRENT_STRENGTH_LEVEL)
     while RUN:
         WORLD.sim_sun(count)
         WORLD.sim_winds()
@@ -522,6 +503,7 @@ def run():
 
         RENDERER.draw_world()
         RENDERER.draw_particles(particles)
+
         RENDERER.draw_post()
         SCREEN.update_display()
         RENDERER.clear_post()
@@ -535,11 +517,11 @@ def run():
         # sum = WORLD.THETAS[:,:,1].sum()
         # print(sum)
 
-        if count == 1000:
-            RENDERER.DRAW = fill_color_sun
-        if count == 2000:
-            RUN = False
-            pygame.display.quit()
+        # if count == 1000:
+        #     RENDERER.DRAW = fill_color_sun
+        # if count == 2000:
+        #     RUN = False
+        #     pygame.display.quit()
     return count, WORLD, times
             
 
