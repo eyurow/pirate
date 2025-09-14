@@ -2,7 +2,7 @@ from generics import vector_length, DBZ, normalize_angles, normal_compare_angles
 from indices import index_shape, get_start_pixels, get_pixel_indices
 from textures.triangles_indices import angle_triangle_map
 from textures.str_map import angle_triangle_mapp
-from textures.textures import particle
+from textures.textures import particle, ship, rotate2
 import numpy as np
 
 import pygame
@@ -427,7 +427,7 @@ def draw_sun(pa, sun, cell_size, world_slicers, color = (200,100,100)):
         
         pa[(pixels[0], pixels[1])] = color
 
-def draw_particles(pa, particles, pa_size, world_slicers, start_pixels, color = (0,0,0)):
+def draw_particles(pa, particles, pa_size, cell_size, world_slicers, start_pixels, color = (0,0,0)):
     world_idx = particles[:2,   (particles[0] >= world_slicers[0].start)&
                                 (particles[0] < world_slicers[0].stop)&
                                 (particles[1] >= world_slicers[1].start)&
@@ -437,7 +437,7 @@ def draw_particles(pa, particles, pa_size, world_slicers, start_pixels, color = 
     world_idx[1] -= world_slicers[1].start
     # print('WORLD_IDX 2: ', world_idx.T)
     
-    draw_idx = world_idx * 3 # convert to pixel index
+    draw_idx = world_idx * cell_size # convert to pixel index
     # print('DRAW_IDX 1: ', draw_idx.T)
 
     draw_idx[0] -= start_pixels[0]
@@ -454,6 +454,26 @@ def draw_particles(pa, particles, pa_size, world_slicers, start_pixels, color = 
     # print('DRAW_IDX 3: ', draw_idx.astype(int).T)
     # print('_____________________________')
     pa[asint] = (0,0,0)
+
+
+def draw_ship(pa, _ship, pa_size, cell_size, world_slicers, start_pixels, color = (0,0,0)):
+    x = (_ship.position[0] - world_slicers[0].start) * cell_size + start_pixels[0]
+    y = (_ship.position[1] - world_slicers[1].start) * cell_size + start_pixels[1]
+
+    texture = rotate2(ship, _ship.heading)
+    # TODO: rotate texture
+
+    pixels = (  index_shape(np.array([x], dtype = int), texture[0]).ravel(), 
+                index_shape(np.array([y], dtype = int), texture[1]).ravel() )
+
+    in_bounds = ((pixels[0] >= 0)&
+                       (pixels[0] < pa_size[0])&
+                       (pixels[1] >= 0)&
+                       (pixels[1] < pa_size[1]))
+    pa[(pixels[0][in_bounds], pixels[1][in_bounds])] = color
+
+
+
 
 
 

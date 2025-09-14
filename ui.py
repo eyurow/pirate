@@ -1,8 +1,8 @@
 import numpy as np
 import pygame
 import pygame.surfarray as sa
-from vis import *
-from generics import get_margin
+from vis import pa_fill_color, fill_color_light, fill_color_sun, fill_ind_colors
+from generics import DBZ, get_margin
 from shapes import generate_compass, generate_patterned_line
 
 

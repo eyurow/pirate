@@ -255,7 +255,10 @@ class World:
         # self.PROP_CURRENTS = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         # self.THETA_MASK = np.zeros((self.SIZE[0], self.SIZE[1], 2))
         self.MGRID = np.mgrid[:self.SIZE[0], :self.SIZE[1]]
+
+        self.count = 0
         
+    def INIT_PHYSICAL_WORLD(self):
         self.CALC_STANDARD_STRENGTH_UNIT()
         self.GENERATE_PRESSURE_BANDS()
         self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
@@ -264,12 +267,19 @@ class World:
         self.SUN_INDEX = 0
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
-        
 
-  
-        
-        self.count = 1
-        
+    def INIT_EMPTY_WORLD(self):
+        self.CALC_STANDARD_STRENGTH_UNIT()
+
+        self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
+        self.SUN_FRAMES = 20
+        self.SUN_INDEX_COUNT = self.SOLAR_BAND[0].size
+        self.SUN_INDEX = 0
+
+        self.GENERATE_PRESSURE_BANDS()
+
+        self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
+        self.CALC_ROTATIONAL_FORCES()
     
     def CALC_STANDARD_STRENGTH_UNIT(self):
         # Current strength magnitude needed to cross 1/10th the vertical diameter with strength of 1 remaining
@@ -514,6 +524,27 @@ class World:
         self.set_currents()
 
         self.apply_energy_loss()
+
+    def sim(self):
+        self.sim_sun(self.count)
+        self.sim_winds()
+        self.sim_currents()
+        self.count += 1
+
+    def test_sim(self):
+        self.set_wind_thetas()
+        self.propogate_array(array = 'winds')
+        self.set_winds()
+        self.apply_winds_to_currents()
+
+        self.impact_land()
+        self.set_current_thetas()  
+
+        self.propogate_array(array = 'currents')
+        self.set_currents()
+
+        self.apply_energy_loss()
+        self.count += 1
         
         
 

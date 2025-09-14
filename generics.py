@@ -77,6 +77,26 @@ def calc_normal_carts_to_position(index, position, handle = 1, return_distance =
         return x, y, distance
     else:
         return x, y
+    
+def compare_angles(a1, a2):
+    # clockwise, a1 > a2
+    if a1 < 0 and a2 > 0:
+        diff = a1 - (a2 - 2*np.pi)
+    else:
+        diff = a1 - a2
+    
+    # if diff < 0:
+    #     diff += 2*np.pi
+    
+    return diff
+
+
+def clockwise_distance(a1, a2):
+    if a2 > a1:
+        return a1 - (a2 - np.pi*2)
+    else:
+        return a1 - a2
+
 
 
 ## Array Transforms

@@ -5,6 +5,7 @@ from ui import EscapeMenu, Context, Rectangle, InfoBox
 from indices import get_pixel_indices
 from generics import get_margin
 from shapes import generate_line, generate_patterned_line, generate_perpendicular_line
+from ships import Ship
 import numpy as np
 import json
 
@@ -309,7 +310,7 @@ class Renderer:
         self.START_PIXEL_X = 0
         self.START_PIXEL_Y = 0
         self.pa_pos = (0,0)
-        self.DRAW = fill_color_light
+        self.DRAW = pa_fill_color
         self.post = []
 
         self.refresh_PA()
@@ -348,9 +349,12 @@ class Renderer:
             self.PA[(button.pa_pos[0] + button.text_ind[0], button.pa_pos[1] + button.text_ind[1])] = button.text_color
 
     def draw_particles(self, particles):
-        draw_particles(self.PA, particles, self.PA_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y), (self.START_PIXEL_X, self.START_PIXEL_Y))
+        draw_particles(self.PA, particles, self.PA_SIZE, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y), (self.START_PIXEL_X, self.START_PIXEL_Y))
 
-    
+    def draw_ship(self, ship):
+        draw_ship(self.PA, ship, self.PA_SIZE, self.CELL_SIZE, (self.WORLD_SLICER_X, self.WORLD_SLICER_Y), (self.START_PIXEL_X, self.START_PIXEL_Y))
+
+
     def draw_rectangle(self, rect):
         if rect.color:
             self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.color
@@ -451,25 +455,50 @@ class Renderer:
 
     def update_display(self):
         self.screen.update_display()
-    
 
-            
+
+def live_world():
+    world = World((500,300), 16) # 100,60
+    with open('200x200_v1.json', 'r') as f:
+        world.LAND = np.array(json.load(f), dtype = int)
+    world.LAND = WORLD.LAND[:, (world.LAND[0] < world.SIZE[0])&
+                                    (world.LAND[0] >= 0)&
+                                    (world.LAND[1] < world.SIZE[1])&
+                                    (world.LAND[1] >= 0)]
+    world.INIT_PHYSICAL_WORLD()
+    return world
+
+
+
+
 WIDTH, HEIGHT = (1200,600)
 CELL_SIZE = 3
 PA = None
+
+diagnostics = []
 
 def run():
     global WORLD, RUN, ESC_MENU, RENDERER
 
     pygame.init()
-    WORLD = World((500,300), 16) # 100,60
-    with open('200x200_v1.json', 'r') as f:
-        WORLD.LAND = np.array(json.load(f), dtype = int)
-    WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
-                                  (WORLD.LAND[0] >= 0)&
-                                  (WORLD.LAND[1] < WORLD.SIZE[1])&
-                                  (WORLD.LAND[1] >= 0)]
-    particles = Particles(500, WORLD, type = 'grid')
+    # WORLD = World((500,300), 16) # 100,60
+    # with open('200x200_v1.json', 'r') as f:
+    #     WORLD.LAND = np.array(json.load(f), dtype = int)
+    # WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
+    #                               (WORLD.LAND[0] >= 0)&
+    #                               (WORLD.LAND[1] < WORLD.SIZE[1])&
+    #                               (WORLD.LAND[1] >= 0)]
+
+
+    # WORLD = live_world()
+    WORLD = World((500,300), 0)
+    WORLD.DISTANCE_FROM_SUN = np.zeros(WORLD.SIZE)
+    WORLD.SUN = (0,0)
+    
+
+    ship = Ship(world = WORLD, position = (70,90), heading = 3*np.pi/4 - .25)
+    ship.main_sail.set = -np.pi/4
+    particles = Particles(12, WORLD, type = 'grid')
 
     SCREEN = Screen(WIDTH, HEIGHT)
     RENDERER = Renderer(SCREEN, CELL_SIZE)
@@ -478,7 +507,7 @@ def run():
     RUN = True
 
     count = 0
-    sun_index_count = WORLD.SOLAR_BAND[0].size
+    # sun_index_count = WORLD.SOLAR_BAND[0].size
     sun_index = 0
     clock = pygame.time.Clock()
     times = {
@@ -486,14 +515,22 @@ def run():
         'Handle':0,
         'Render':0
         }
-    WORLD.CURRENTS[0,150,0] = 0
-    WORLD.CURRENTS[0,150,1] = 50
-    print(WORLD.STANDARD_CURRENT_STRENGTH_LEVEL)
+    # WORLD.CURRENTS[0,150,0] = 0
+    # WORLD.CURRENTS[0,150,1] = 50
+    # print(WORLD.STANDARD_CURRENT_STRENGTH_LEVEL)
     while RUN:
-        WORLD.sim_sun(count)
-        WORLD.sim_winds()
+        # WORLD.sim()
+        WORLD.test_sim()
+        #if count//500 % 2 == 0: 
+        WORLD.WINDS[:,:,0] += .5
+
+        diagnostics.append({'WINDS': WORLD.WINDS[int(ship.position[0]), int(ship.position[1])],
+                            'CURRENTS': WORLD.CURRENTS[int(ship.position[0]), int(ship.position[1])],
+                            'SHIP P': (ship.position),
+                            'SHIP V': (ship.x, ship.y)})
 
         particles.sim_particles()
+        ship.sim(diagnostics)
         times['Sim'] += clock.tick_busy_loop() / 1000
 
         direction = INP_HANDLER.handle()
@@ -503,13 +540,14 @@ def run():
 
         RENDERER.draw_world()
         RENDERER.draw_particles(particles)
+        RENDERER.draw_ship(ship)
 
         RENDERER.draw_post()
         SCREEN.update_display()
         RENDERER.clear_post()
         times['Render'] += clock.tick_busy_loop() / 1000
 
-        WORLD.sim_currents()
+
         
         count += 1
 
