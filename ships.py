@@ -51,6 +51,9 @@ class Ship:
         self.weight = 15*1016 # in kgs 
         self.x = 0 # present velocity
         self.y = 0
+
+    def __str__(self):
+        return f'Position: {self.position}; Heading: {self.heading}; Velocity: {self.x}, {self.y}; Sail: {self.main_sail.set}; Sail Force: {self.main_sail.x}, {self.main_sail.y}'
     
     def calc_apparent_wind(self):
         wind_x = self.world.WINDS[int(self.position[0]), int(self.position[1]), 0]
@@ -83,8 +86,8 @@ class Ship:
             self.position[1] = self.world.SIZE[1] - 1
         if self.position[1] >= self.world.SIZE[1]:
             self.position[1] = 0
-        print(f'SHIP: {self.x}, {self.y}')
-        print(f'POSITION: {self.position}')
+        print(f'NEW VELOCITY: {self.x}, {self.y}')
+        print(f'NEW POSITION: {self.position}')
         print('____________')
         print('____________')
 
@@ -186,10 +189,10 @@ def wind_impact_on_sail(wind = (-7, 10), sail = Sail(), diagnostics = None):
     delta_wind_x = final_wind_x - wind_x
     delta_wind_y = final_wind_y - wind_y
 
-    air_volume = wind_strength * sail.area # m/s * m2 * s
-    air_mass = air_volume * AIR_DENSITY # m3 * kg/m3
+    air_volume = wind_strength * sail.area # m/s * m2 * s = m3
+    air_mass = air_volume * AIR_DENSITY # m3 * kg/m3 = kg
     air_acceleration = np.sqrt(delta_wind_x**2 + delta_wind_y**2) # m/s2
-    force_on_air = air_mass * air_acceleration # kg * ms/s2
+    force_on_air = air_mass * air_acceleration # kg * m/s2
     force_wind_x = delta_wind_x * air_mass
     force_wind_y = delta_wind_y * air_mass
 
@@ -202,6 +205,10 @@ def wind_impact_on_sail(wind = (-7, 10), sail = Sail(), diagnostics = None):
         diagnostics[-1]['AIR MASS'] = air_mass
     except NameError:
         pass
+    except:
+        print((sail_x, sail_y))
+        print(air_mass)
+
 
     sail.x = sail_x
     sail.y = sail_y
@@ -245,6 +252,9 @@ def current_impact_on_ship(current = (10,0), ship = Ship(), diagnostics = None):
         diagnostics[-1]['WATER MASS'] = water_mass
     except NameError:
         pass
+    except:
+        print(-force_current_x / ship.weight, -force_current_y / ship.weight)
+        print(water_mass)
 
     ship.x += -force_current_x / ship.weight
     ship.y += -force_current_y / ship.weight
@@ -308,6 +318,35 @@ def force_of_impact(impacting_force = (0, 10), impacted_object = (-np.pi/2, 0)):
     net_y = parallel_y + perpendicular_y + ship_y
 
     return net_x, net_y
+
+
+if __name__ == '__main__':
+# Position: [70.01842392323705, 90.02729013457169]; Heading: 2.106194490192345; Velocity: -4.416054258232779, 0.22129272587548798; Sail: -0.7853981633974483; Sail Force: 0.026684449114727466, 0.028744423136780294
+# SPEED: (-4.416054258232779, 0.22129272587548798)
+# WIND: [2.5 0. ]
+# CURR: [1. 0.]
+# APP. WIND: (6.916046775344396, -0.22129272587548798)
+# F WIND: (0.18243819815387377, 0.23004496843871758)
+# APP. CURR.: (5.205552171499232, -0.45133769431420556)
+# F CURRENT: (54.859071656666195, 87.31860196566832)
+    class World:
+        def __init__(self):
+            self.WINDS = np.zeros((500,300,2))
+            self.CURRENTS = np.zeros((500,300,2))
+    world = World()
+    world.WINDS[:,:] = (2.5, 0)
+    world.CURRENTS[:,:] = (1, 0)
+
+    ship = Ship(position = (70.01842392323705, 90.02729013457169), heading = 2.106194490192345, world = world)
+    ship.main_sail.set = -np.pi/4
+    ship.x = -4.416054258232779
+    ship.y = 0.22129272587548798
+
+    app_wind = ship.calc_apparent_wind()
+    wind_impact_on_sail(app_wind, ship.main_sail)
+    app_current = ship.calc_apparent_current()
+    current_impact_on_ship(app_current, ship)
+
 
 
 

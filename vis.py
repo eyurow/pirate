@@ -463,6 +463,8 @@ def draw_ship(pa, _ship, pa_size, cell_size, world_slicers, start_pixels, color 
     texture = rotate2(ship, _ship.heading)
     # TODO: rotate texture
 
+    print(x, y)
+    print(_ship)
     pixels = (  index_shape(np.array([x], dtype = int), texture[0]).ravel(), 
                 index_shape(np.array([y], dtype = int), texture[1]).ravel() )
 

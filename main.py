@@ -496,7 +496,7 @@ def run():
     WORLD.SUN = (0,0)
     
 
-    ship = Ship(world = WORLD, position = (70,90), heading = 3*np.pi/4 - .25)
+    ship = Ship(world = WORLD, position = (70,90), heading = (3*np.pi/4)-.25)
     ship.main_sail.set = -np.pi/4
     particles = Particles(12, WORLD, type = 'grid')
 
@@ -565,9 +565,28 @@ def run():
 
         
 if __name__ == '__main__':
-    countc, worldc, timesc = run()
-    avg = {k: v/countc for k, v in timesc.items()}
-    print(avg)
+    try:
+        countc, worldc, timesc = run()
+        avg = {k: v/countc for k, v in timesc.items()}
+    
+    except:
+        import pandas as pd
+        df = pd.DataFrame(diagnostics)
+        dictt = diagnostics[1]
+        cols = df.columns
+        for col in cols:
+            if col != 'SHIP P':
+                try:
+                    len(dictt[col])
+                    df[f'{col} SPEED'] = np.nan
+                    df[f'{col} DIR'] = np.nan
+                    for row in range(len(df)):
+                        print(col, row)
+                        df.loc[row, f'{col} SPEED'] = np.sqrt(df.loc[row, col][0]**2 + df.loc[row, col][1]**2)
+                        df.loc[row, f'{col} DIR'] = np.arctan2(df.loc[row, col][1], df.loc[row, col][0])
+                except TypeError:
+                    pass
+
 
 
 def save_land(world, name):
