@@ -242,8 +242,8 @@ class World:
         self.SEA = []
         
         self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .07
-        self.WIND_LOSS_FACTOR = .2
+        self.CURRENT_LOSS_FACTOR = .1
+        self.WIND_LOSS_FACTOR = .01
         self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
         self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
 
@@ -268,16 +268,15 @@ class World:
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
 
+
     def INIT_EMPTY_WORLD(self):
         self.CALC_STANDARD_STRENGTH_UNIT()
+        self.GENERATE_PRESSURE_BANDS()
 
         self.SUN = (self.SOLAR_BAND[0][0],self.SOLAR_BAND[1][0])
         self.SUN_FRAMES = 20
         self.SUN_INDEX_COUNT = self.SOLAR_BAND[0].size
         self.SUN_INDEX = 0
-
-        self.GENERATE_PRESSURE_BANDS()
-
         self.ANGULAR_VELOCITY = (np.pi * 2) / (self.SOLAR_BAND.shape[1] * self.SUN_FRAMES/2)
         self.CALC_ROTATIONAL_FORCES()
     
@@ -523,12 +522,11 @@ class World:
         self.propogate_array(array = 'currents')
         self.set_currents()
 
-        self.apply_energy_loss()
-
     def sim(self):
         self.sim_sun(self.count)
         self.sim_winds()
         self.sim_currents()
+        self.apply_energy_loss()
         self.count += 1
 
     def test_sim(self):

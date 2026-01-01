@@ -4,13 +4,14 @@
 # sail/keel forces - https://www.phys.unsw.edu.au/~jw/sailing.html
 # wind/wave forces - https://data.coaps.fsu.edu/eric_pub/RSMAS/GODAE_School/GODAE_Book/Chap23-Hackett.pdf
 # weight/displacement - https://www.lifeofsailing.com/blogs/articles/how-much-does-a-sailboat-weigh
+# righting/balance - https://www.quora.com/Is-it-true-that-ships-dont-roll-over-because-it-have-the-center-of-gravity-lower-than-center-of-buoyancy-and-ships-will-always-roll-over-if-the-center-of-gravity-higher-than-center-of-buoyancy
 
 # 2240 lbs per ton
 # 1016 kgs per ton
 
 
 import numpy as np
-from generics import clockwise_distance, DBZ, compare_angles
+from generics import clockwise_distance, DBZ, compare_angles, normalize_angle
 
 AIR_DENSITY = 1.225 # g/ml, 1.225 kg/m3 # TODO: world attribute
 WATER_DENSITY = 1000 
@@ -18,11 +19,14 @@ WATER_DENSITY = 1000
 
 class Sail:
     def __init__(self, ship = None, give = np.pi/6, set = np.pi/2, shape = 'square', height = 8, width = 8):
+        self.shape = shape
+        self.height = height
+        self.width = width
         self.give = give # in radians; maximum change in wind-angle sail will allow when fully taut; how much slack it has at rest; defined clockwise to set
-        self.set = set # where leading edge of sail is pointing; pi/-pi has sail behind mast, -np.pi/2 has sail to the right of mast
+        self.set = set # where leading edge of sail is pointing relative to ship heading; pi/-pi has sail pointing aft, -np.pi/2 has sail pointing right
         self.ship = ship
         self.calc_sail_area(shape, height, width)
-        self.x = 0 # x-wise force on sail (relative to world directions)
+        self.x = 0 # x-wise acceleration on sail (relative to world directions)
         self.y = 0
 
     def calc_sail_area(self, shape, height, width):
@@ -41,43 +45,100 @@ class Ship:
     def __init__(self, world = None, position = (0,0), heading = np.pi/4):
         self.world = world
         self.position = [position[0], position[1]]
-        self.hull_length = 18
-        self.hull_width = 4
-        self.hull_height = 6
-        self.hull_waterline = 3.5
-        self.keel_height = 1
+        self.hull_length = 18 # meters
+        self.hull_width = 4 # meters
+        self.hull_height = 6 # meters
+        self.hull_waterline = 3.5 # meters
+        self.keel_height = 1 # meters
+        self.block_coefficient = .4
         self.heading = heading
         self.main_sail = Sail(ship = self)
-        self.weight = 15*1016 # in kgs 
-        self.x = 0 # present velocity
-        self.y = 0
+        self.volume = self.hull_length * self.hull_width * self.hull_height * self.block_coefficient
+        self.weight = 15*1016 # tons -> kgs 
+        self.x_accel = 0
+        self.y_accel = 0
+        self.x = 0 # velocity-x
+        self.y = 0 # velocity-y
+        self.d = 0 # forward (driving) acceleration in reference to heading
+        self.l = 0 # lateral acceleration relative to heading
+        self.heeling_angle = 0 # straight up
+        self.heeling_inertia = self.weight * ((self.hull_width + (self.hull_height + self.main_sail.height)) / 2)**2
+        self.righting_inertia = self.weight * ((self.hull_width + self.hull_height) / 2)**2
+        self.cog = [0, .55 * self.hull_height]
+        self.cob = [0, .35 * self.hull_height]
+        self.metacenter = self.hull_waterline
+        self.metacenter_length = self.metacenter - self.cob[1]
 
     def __str__(self):
         return f'Position: {self.position}; Heading: {self.heading}; Velocity: {self.x}, {self.y}; Sail: {self.main_sail.set}; Sail Force: {self.main_sail.x}, {self.main_sail.y}'
     
-    def calc_apparent_wind(self):
+    @property
+    def apparent_wind(self):
         wind_x = self.world.WINDS[int(self.position[0]), int(self.position[1]), 0]
         wind_y = self.world.WINDS[int(self.position[0]), int(self.position[1]), 1]
+        print('Winds: ', wind_x, wind_y)
         return (wind_x - self.x, wind_y - self.y)
     
-    def calc_apparent_current(self):
+    @property
+    def apparent_current(self):
         current_x = self.world.CURRENTS[int(self.position[0]), int(self.position[1]), 0]
         current_y = self.world.CURRENTS[int(self.position[0]), int(self.position[1]), 1]
+        print('Currents: ', current_x, current_y)
         return (current_x - self.x, current_y - self.y)
     
-    def sim(self, diagnostics = None):
-        print(f'SPEED: {self.x, self.y}')
-        print(f'WIND: {self.world.WINDS[int(self.position[0]), int(self.position[1])]}')
-        print(f'CURR: {self.world.CURRENTS[int(self.position[0]), int(self.position[1])]}')
-        apparent_wind = self.calc_apparent_wind()
-        print(f'APP. WIND: {apparent_wind}')
-        wind_impact_on_sail(apparent_wind, self.main_sail, diagnostics)
+    def find_center_of_balance(self):
+        return [np.sin(self.heeling_angle) * self.metacenter_length, self.metacenter - np.cos(self.heeling_angle) * self.metacenter_length]
+    
+    def calc_righting_action(self):
+        b = np.sqrt((self.cob[0] - self.cog[0])**2 + (self.cob[1] - self.cog[1])**2)
+        b_angle = np.arctan2(self.cog[0] - self.cob[0], self.cog[1] - self.cob[1]) # flip x/y coords (x first in acrtan) so 0 is up in zx space
+        grav_torque = self.weight * 9.8 * b * np.sin(self.heeling_angle + b_angle) / self.righting_inertia # inertia * mass (kg) * grav. accel (m/s) * lever arm
+        print('B: ', np.sin(np.sin(self.heeling_angle + b_angle)))
+        signed = 0
 
-        apparent_current = self.calc_apparent_current()
-        print(f'APP. CURR.: {apparent_current}')
-        current_impact_on_ship(apparent_current, self, diagnostics)
-        print('___________')
-        self.position = [self.position[0] + (self.x / 1000), self.position[1] + (self.y / 1000)]
+        self.heeling_angle += grav_torque * 2
+
+        # if self.heeling_angle < 0:
+        #     self.heeling_angle += grav_torque*2
+        # else:
+        #     self.heeling_angle -= grav_torque*2
+
+        # if self.cob[0] <= 0:
+        #     self.heeling_angle += grav_torque # buoancy force
+        #     signed += grav_torque
+        # else:
+        #     self.heeling_angle -= grav_torque
+        #     signed -= grav_torque
+        # if self.cog[0] < self.cob[0]:
+        #     self.heeling_angle -= grav_torque
+        #     signed -= grav_torque
+        # else:
+        #     self.heeling_angle += grav_torque
+        #     signed += grav_torque
+        # print('B: ', signed)
+
+    
+    def sim(self, diagnostics = None, world_cell_size = 1000, time_step = 1):
+        '''
+        world cell size: square meters per world cell
+        time_step: seconds per sim step
+        '''
+        # print(f'WIND: {self.world.WINDS[int(self.position[0]), int(self.position[1])]}')
+        # print(f'CURR: {self.world.CURRENTS[int(self.position[0]), int(self.position[1])]}')
+        # apparent_wind = self.calc_apparent_wind()
+        wind_impact_on_sail(self.apparent_wind, self.main_sail, diagnostics)
+        print('APP WIND: ', self.apparent_wind)
+        # apparent_current = self.calc_apparent_current()
+        print('APP CURR: ', self.apparent_current)
+        current_impact_on_ship(self.apparent_current, self, diagnostics)
+
+        self.x += self.x_accel + self.main_sail.x
+        self.y += self.y_accel + self.main_sail.y
+
+        self.cob = self.find_center_of_balance()
+        self.calc_righting_action()
+
+        self.position = [self.position[0] + (self.x / world_cell_size) * time_step, self.position[1] - (self.y / world_cell_size) * time_step]
         if self.position[0] < 0:
             self.position[0] = self.world.SIZE[0] - 1
         if self.position[0] >= self.world.SIZE[0]:
@@ -86,10 +147,137 @@ class Ship:
             self.position[1] = self.world.SIZE[1] - 1
         if self.position[1] >= self.world.SIZE[1]:
             self.position[1] = 0
-        print(f'NEW VELOCITY: {self.x}, {self.y}')
-        print(f'NEW POSITION: {self.position}')
-        print('____________')
-        print('____________')
+
+        # if abs(self.heeling_angle) > np.pi/2:
+        #     self.heeling_angle = 0
+        print('H: ', self.heeling_angle)
+        print('V: ', self.x, self.y)
+
+
+
+
+
+
+
+
+
+def wind_impact_on_sail(wind = (-7, 10), sail = Sail(), diagnostics = None):
+    #print(wind)
+    ship = sail.ship
+    wind_theta = np.arctan2(wind[1], wind[0])
+    wind_strength = np.sqrt(wind[0]**2 + wind[1]**2) #/ m/s
+
+    ship = sail.ship
+
+    wind_x = wind[0]
+    wind_y = wind[1]
+
+    wind_compare = compare_wind_and_sail3(wind_theta, sail)
+    print('WIND COMPARE: ', wind_compare)
+    if wind_compare is None:
+        #ship.x += wind_x #sail.ship.x / 2
+        #ship.y += wind_y #sail.ship.y / 2
+        return
+    # TODO: add ineffiency parameter?
+    elif wind_compare:
+        final_wind = sail.ship.heading - sail.set - sail.give
+    else:
+        final_wind = sail.ship.heading - sail.set + np.pi
+
+    # TODO: reduce strength based on length of sail wind travelled?
+    final_wind_x = np.cos(final_wind) * wind_strength
+    final_wind_y = np.sin(final_wind) * wind_strength
+
+    delta_wind_x = final_wind_x - wind_x
+    delta_wind_y = final_wind_y - wind_y
+    print('DELTA WIND: ', final_wind_x, final_wind_y)
+
+    air_volume = wind_strength * sail.area # m/s * m2 * s = m3. #TODO: wind-catching area should change with heeling angle - sin( heelAngle ) * sail area
+    air_mass = air_volume * AIR_DENSITY # m3 * kg/m3 = kg
+    air_acceleration = np.sqrt(delta_wind_x**2 + delta_wind_y**2) # m/s2
+    force_on_air = air_mass * air_acceleration # kg * m/s2
+    force_wind_x = delta_wind_x * air_mass # per second
+    force_wind_y = delta_wind_y * air_mass
+
+    sail.x = -force_wind_x / ship.weight
+    sail.y = -force_wind_y / ship.weight
+    print('SA: ', sail.x, sail.y)
+
+    # print(f'WIND: {wind}')
+    # try:
+    #     diagnostics[-1]['F SAIL'] = (sail_x, sail_y)
+    #     diagnostics[-1]['AIR MASS'] = air_mass
+    # except:
+    #     diagnostics[-1]['F SAIL'] = 'error'
+    #     diagnostics[-1]['AIR MASS'] = 'error'
+
+
+    # heeling action
+    direction = ship.heading # current ship's direction
+    force_on_ship_dir = np.arctan2(sail.y, sail.x)
+    theta = direction - force_on_ship_dir
+    fLat = np.cos(theta) * force_on_air #TODO: calc torque as if force was applied for a second or minute?
+    torque = fLat * ( (sail.height/2) + ship.hull_height + ship.keel_height ) / ship.heeling_inertia #TODO: use fLat to get heeling force (youtube video on torque angles)
+
+    ship.l = fLat
+    ship.d = np.sin(theta) * force_on_air 
+    ship.heeling_angle += torque
+    print('S: ', torque)
+    #return sail.set, final_wind[0], np.arctan2(sail_y, sail_x), np.sqrt(sail_x**2 + sail_y**2), sail_x, sail_y
+
+def current_impact_on_ship(current = (10,0), ship = Ship(), diagnostics = None):
+    current_theta = np.arctan2(current[1], current[0])
+    current_strength = np.sqrt(current[0]**2 + current[1]**2) #/ 1000
+    #print(current, current_strength)
+
+    current_x = current[0] # DBZ(current[0], current_strength)
+    current_y = current[1] # DBZ(current[1], current_strength)
+
+    distance = clockwise_distance(ship.heading, current_theta)
+    if distance >= np.pi/2 and distance < 3*np.pi/2:
+        final_current = ship.heading + np.pi
+    else:
+        final_current = ship.heading
+
+    # TODO: reduce strength based on length of sail wind travelled?
+    final_current_x = np.cos(final_current) * current_strength #* .8
+    final_current_y = np.sin(final_current) * current_strength #* .8
+
+    delta_current_x = final_current_x - current_x
+    delta_current_y = final_current_y - current_y
+    print('DELTA CURR: ', delta_current_x, delta_current_y)
+
+    delta_current_theta = final_current - current_theta #np.arctan2(delta_current_y, delta_current_x)
+
+    water_volume = current_strength * ship.hull_length * ship.hull_waterline * .5 #TODO better calc area of ship shown to current
+    water_mass = water_volume * WATER_DENSITY
+    water_acceleration = np.sqrt(delta_current_x**2 + delta_current_y**2)
+    force_on_water = water_mass * water_acceleration
+    force_current_x = delta_current_x * water_mass
+    force_current_y = delta_current_y * water_mass
+
+    # try:
+    #     diagnostics[-1]['F SHIP'] = (-force_current_x / ship.weight, -force_current_y / ship.weight)
+    #     diagnostics[-1]['WATER MASS'] = water_mass
+    # except:
+    #     diagnostics[-1]['F SHIP'] = 'error'
+    #     diagnostics[-1]['WATER MASS'] = 'error'
+
+    ship.x_accel = -force_current_x / ship.weight
+    ship.y_accel = -force_current_y / ship.weight
+    print('HA: ', ship.x_accel, ship.y_accel)
+
+    # heeling action
+    direction = np.arctan2(ship.y, ship.x) # current ship's direction
+    force_on_ship_dir = np.arctan2(ship.x_accel, ship.y_accel)
+    theta = direction - force_on_ship_dir
+    fLat = np.cos(theta) * force_on_water #TODO: calc torque as if force was applied for a second or minute?
+    torque = fLat * ( ship.hull_height + ship.keel_height ) / ship.heeling_inertia #TODO: use fLat to get heeling force (youtube video on torque angles)
+
+    ship.l += fLat
+    ship.d += np.sin(theta) * force_on_water 
+    ship.heeling_angle += torque
+    print('K: ', torque)
 
 
 def compare_wind_and_sail(wind, sail):
@@ -108,8 +296,7 @@ def compare_wind_and_sail(wind, sail):
         _wind = wind + 2*np.pi if wind < 0 and final_theta > 0 else wind
         init_theta = sail.set + 2*np.pi if sail.set < 0 and _wind >= 0 else sail.set
 
-        return _wind <= init_theta and _wind >= final_theta
-    
+        return _wind <= init_theta and _wind >= final_theta   
 def compare_wind_and_sail2(wind, sail):
     final_theta = sail.set - np.pi - sail.give
     if final_theta <= -np.pi:
@@ -124,140 +311,21 @@ def compare_wind_and_sail2(wind, sail):
         no_zone = compare_angles(final_theta, sail.set)
         wind_diff = compare_angles(final_theta, wind)
         return not wind_diff < no_zone
-
-
 def compare_wind_and_sail3(wind, sail):
+    print('SAIL-WIND: ', sail.ship.heading - sail.set, wind)
     zone = np.pi + sail.give 
     if sail.give >= 0:
-        wind_diff = clockwise_distance(sail.set, wind)
+        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
         if wind_diff < zone and wind_diff != 0: # is wind in range of sail given give?
             return None
         else:
             return (wind_diff - zone >= (np.pi - sail.give)/2) or wind_diff == 0 # True if wind is closer to set than end
     elif sail.give < 0:
-        wind_diff = clockwise_distance(sail.set, wind)
+        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
         if wind_diff > zone:
             return None
         else:
             return wind_diff <= zone / 2
-
-
-# sail = Sail()
-# for give in [-np.pi/4]:#, -np.pi/6]:
-#     sail.give = give
-#     print('GIVE: ', sail.give)
-#     for se in [0, 3*np.pi/4, np.pi, -3*np.pi/4, -np.pi/4]:
-#         sail.set = se
-#         print('SET: ', se)
-#         for wind in [0, 3*np.pi/4, np.pi, -3*np.pi/4, -np.pi/4]:
-#             print(wind, compare_wind_and_sail3(wind, sail))
-
-
-
-
-def wind_impact_on_sail(wind = (-7, 10), sail = Sail(), diagnostics = None):
-    wind_theta = np.arctan2(wind[1], wind[0])
-    wind_strength = np.sqrt(wind[0]**2 + wind[1]**2)
-
-    wind_x = wind[0]
-    wind_y = wind[1]
-
-    wind_compare = compare_wind_and_sail3(wind_theta, sail)
-    if wind_compare is None:
-        # sail.x = wind[0] / 4 / sail.ship.weight
-        # sail.y = wind[1] / 4 / sail.ship.weight
-        # sail.ship.x += sail.x
-        # sail.ship.y += sail.y
-        # print(f'WIND: {wind}')
-        # try:
-        #     diagnostics[-1]['NO SAIL'] = (wind[0] / 4 / sail.ship.weight, wind[1] / 4 / sail.ship.weight)
-        # except NameError:
-        #     pass
-        sail.ship.x = sail.ship.x / 2
-        sail.ship.y = sail.ship.y / 2
-        return
-    # TODO: add ineffiency parameter?
-    elif wind_compare:
-        final_wind = sail.set - sail.give
-    else:
-        final_wind = sail.set + np.pi
-
-    # TODO: reduce strength based on length of sail wind travelled?
-    final_wind_x = np.cos(final_wind) * wind_strength
-    final_wind_y = np.sin(final_wind) * wind_strength
-
-    delta_wind_x = final_wind_x - wind_x
-    delta_wind_y = final_wind_y - wind_y
-
-    air_volume = wind_strength * sail.area # m/s * m2 * s = m3
-    air_mass = air_volume * AIR_DENSITY # m3 * kg/m3 = kg
-    air_acceleration = np.sqrt(delta_wind_x**2 + delta_wind_y**2) # m/s2
-    force_on_air = air_mass * air_acceleration # kg * m/s2
-    force_wind_x = delta_wind_x * air_mass
-    force_wind_y = delta_wind_y * air_mass
-
-    sail_x = -force_wind_x / sail.ship.weight
-    sail_y = -force_wind_y / sail.ship.weight
-
-    # print(f'WIND: {wind}')
-    try:
-        diagnostics[-1]['F SAIL'] = (sail_x, sail_y)
-        diagnostics[-1]['AIR MASS'] = air_mass
-    except NameError:
-        pass
-    except:
-        print((sail_x, sail_y))
-        print(air_mass)
-
-
-    sail.x = sail_x
-    sail.y = sail_y
-    sail.ship.x += sail_x
-    sail.ship.y += sail_y
-    print(f'F WIND: {sail_x, sail_y}')
-    #return sail.set, final_wind[0], np.arctan2(sail_y, sail_x), np.sqrt(sail_x**2 + sail_y**2), sail_x, sail_y
-
-def current_impact_on_ship(current = (10,0), ship = Ship(), diagnostics = None):
-    current_theta = np.arctan2(current[1], current[0])
-    current_strength = np.sqrt(current[0]**2 + current[1]**2)
-
-    current_x = current[0] # DBZ(current[0], current_strength)
-    current_y = current[1] # DBZ(current[1], current_strength)
-
-    distance = clockwise_distance(ship.heading, current_theta)
-    if distance >= np.pi/2 and distance < 3*np.pi/2:
-        final_current = ship.heading + np.pi
-    else:
-        final_current = ship.heading
-
-    # TODO: reduce strength based on length of sail wind travelled?
-    final_current_x = np.cos(final_current) * current_strength * 1
-    final_current_y = np.sin(final_current) * current_strength * 1
-
-    delta_current_x = final_current_x - current_x
-    delta_current_y = final_current_y - current_y
-
-    delta_current_theta = final_current - current_theta #np.arctan2(delta_current_y, delta_current_x)
-
-    water_volume = current_strength * ship.hull_length * ship.hull_waterline
-    water_mass = water_volume * WATER_DENSITY
-    water_acceleration = np.sqrt(delta_current_x**2 + delta_current_y**2)
-    force_on_water = water_mass * water_acceleration
-    force_current_x = delta_current_x * water_mass
-    force_current_y = delta_current_y * water_mass
-
-    print(f'F CURRENT: {-force_current_x / ship.weight, -force_current_y / ship.weight}')
-    try:
-        diagnostics[-1]['F SHIP'] = (-force_current_x / ship.weight, -force_current_y / ship.weight)
-        diagnostics[-1]['WATER MASS'] = water_mass
-    except NameError:
-        pass
-    except:
-        print(-force_current_x / ship.weight, -force_current_y / ship.weight)
-        print(water_mass)
-
-    ship.x += -force_current_x / ship.weight
-    ship.y += -force_current_y / ship.weight
 
 
 def sail_impact_on_ship(sail, ship):

@@ -2,7 +2,7 @@ from generics import vector_length, DBZ, normalize_angles, normal_compare_angles
 from indices import index_shape, get_start_pixels, get_pixel_indices
 from textures.triangles_indices import angle_triangle_map
 from textures.str_map import angle_triangle_mapp
-from textures.textures import particle, ship, rotate2
+from textures.textures import particle, ship, rotate, rotate2, rotate_texture
 import numpy as np
 
 import pygame
@@ -457,14 +457,13 @@ def draw_particles(pa, particles, pa_size, cell_size, world_slicers, start_pixel
 
 
 def draw_ship(pa, _ship, pa_size, cell_size, world_slicers, start_pixels, color = (0,0,0)):
-    x = (_ship.position[0] - world_slicers[0].start) * cell_size + start_pixels[0]
-    y = (_ship.position[1] - world_slicers[1].start) * cell_size + start_pixels[1]
+    x = (_ship.position[0] - world_slicers[0].start) * cell_size - start_pixels[0]
+    y = (_ship.position[1] - world_slicers[1].start) * cell_size - start_pixels[1]
 
     texture = rotate2(ship, _ship.heading)
+    #texture = rotate_texture(ship, _ship.heading)
     # TODO: rotate texture
 
-    print(x, y)
-    print(_ship)
     pixels = (  index_shape(np.array([x], dtype = int), texture[0]).ravel(), 
                 index_shape(np.array([y], dtype = int), texture[1]).ravel() )
 

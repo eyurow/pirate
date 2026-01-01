@@ -6,8 +6,11 @@ from indices import get_pixel_indices
 from generics import get_margin
 from shapes import generate_line, generate_patterned_line, generate_perpendicular_line
 from ships import Ship
+from textures.ship_diagram import zx_diagram, xy_diagram
 import numpy as np
 import json
+import psutil
+import os
 
 import pygame
 import pygame.surfarray as sa
@@ -389,6 +392,28 @@ class Renderer:
         adjusted = (idx[0] + info_box.pa_pos[0], idx[1] + info_box.pa_pos[1])
         self.PA[adjusted] = (50,150,175)
 
+    def draw_ship_zx_diagram(self, ship):
+        x_range, y_range, zx_diag = zx_diagram(ship, 'small')
+        start_x = x_range[0] + self.PA_SIZE[0] - (x_range[1] * 2) - (10 * 2) # two diagrams from bottom right corner, 10 pix buffer
+        start_y = y_range[0] + self.PA_SIZE[1] - y_range[1] - 10
+       
+        print(self.PA_SIZE)        
+        print(x_range, y_range)
+        print(zx_diag[0].min(), zx_diag[0].max())
+        print(zx_diag[1].min(), zx_diag[1].max())
+
+        self.PA[start_x:start_x + x_range[1],start_y:start_y + y_range[1]] = (0,0,0)
+        self.PA[(zx_diag[0] + start_x, zx_diag[1] + start_y)] = (255,255,255)
+
+    def draw_ship_xy_diagram(self, ship):
+        x_range, y_range, xy_diag = xy_diagram(ship, 'small')
+        start_x = x_range[0] + self.PA_SIZE[0] - x_range[1] - 10 # one diagram from bottom right corner, 10 pix buffer
+        start_y = y_range[0] + self.PA_SIZE[1] - y_range[1] - 10
+
+        self.PA[start_x:start_x + x_range[1],start_y:start_y + y_range[1]] = (0,0,0)
+        self.PA[(xy_diag[0] + start_x, xy_diag[1] + start_y)] = (255,255,255)
+
+
     def draw_line(self, p1, p2, thick, thick_quotient = .5, thick_offset = -1, num_lines = 1, even_offset = 0, color = (0,0,0)):
         line = generate_line(p1, p2, thick, thick_quotient, thick_offset, num_lines, even_offset)
         self.PA[tuple(line)] = color
@@ -469,19 +494,27 @@ def live_world():
     return world
 
 
+def report_memory():
+    total = psutil.virtual_memory().total
+    process = psutil.Process(os.getpid())
+    ram = process.memory_info().rss
+    return ram, ram/total
+
 
 
 WIDTH, HEIGHT = (1200,600)
 CELL_SIZE = 3
 PA = None
 
-diagnostics = []
+diagnostics = [] # ship diagnostics
+m_diagn = {} # memory diagnostics
 
 def run():
     global WORLD, RUN, ESC_MENU, RENDERER
 
     pygame.init()
     # WORLD = World((500,300), 16) # 100,60
+    # WORLD.INIT_PHYSICAL_WORLD()
     # with open('200x200_v1.json', 'r') as f:
     #     WORLD.LAND = np.array(json.load(f), dtype = int)
     # WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
@@ -490,14 +523,17 @@ def run():
     #                               (WORLD.LAND[1] >= 0)]
 
 
-    # WORLD = live_world()
+    ## TEST WORLD    
     WORLD = World((500,300), 0)
+    # WORLD.INIT_EMPTY_WORLD()
     WORLD.DISTANCE_FROM_SUN = np.zeros(WORLD.SIZE)
     WORLD.SUN = (0,0)
     
 
-    ship = Ship(world = WORLD, position = (70,90), heading = (3*np.pi/4)-.25)
-    ship.main_sail.set = -np.pi/4
+    ship = Ship(world = WORLD, position = (100,150), heading = -np.pi/8)
+    # ship.main_sail.area = 0
+    ship.main_sail.set = -np.pi/6
+    ship.main_sail.give = -np.pi/6
     particles = Particles(12, WORLD, type = 'grid')
 
     SCREEN = Screen(WIDTH, HEIGHT)
@@ -507,7 +543,7 @@ def run():
     RUN = True
 
     count = 0
-    # sun_index_count = WORLD.SOLAR_BAND[0].size
+    
     sun_index = 0
     clock = pygame.time.Clock()
     times = {
@@ -521,13 +557,14 @@ def run():
     while RUN:
         # WORLD.sim()
         WORLD.test_sim()
-        #if count//500 % 2 == 0: 
-        WORLD.WINDS[:,:,0] += .5
 
-        diagnostics.append({'WINDS': WORLD.WINDS[int(ship.position[0]), int(ship.position[1])],
-                            'CURRENTS': WORLD.CURRENTS[int(ship.position[0]), int(ship.position[1])],
-                            'SHIP P': (ship.position),
-                            'SHIP V': (ship.x, ship.y)})
+        WORLD.WINDS[30:90,100:200,0] = 1
+        WORLD.WINDS[30:90,100:200,1] = 0
+
+        # diagnostics.append({'WINDS': WORLD.WINDS[int(ship.position[0]), int(ship.position[1])],
+        #                     'CURRENTS': WORLD.CURRENTS[int(ship.position[0]), int(ship.position[1])],
+        #                     'SHIP P': (ship.position),
+        #                     'SHIP V': (ship.x, ship.y)})
 
         particles.sim_particles()
         ship.sim(diagnostics)
@@ -541,6 +578,8 @@ def run():
         RENDERER.draw_world()
         RENDERER.draw_particles(particles)
         RENDERER.draw_ship(ship)
+        RENDERER.draw_ship_xy_diagram(ship)
+        RENDERER.draw_ship_zx_diagram(ship)
 
         RENDERER.draw_post()
         SCREEN.update_display()
@@ -551,16 +590,15 @@ def run():
         
         count += 1
 
-        # WORLD.set_current_thetas()
-        # sum = WORLD.THETAS[:,:,1].sum()
-        # print(sum)
-
         # if count == 1000:
         #     RENDERER.DRAW = fill_color_sun
         # if count == 2000:
         #     RUN = False
         #     pygame.display.quit()
-    return count, WORLD, times
+        # if count in [10,100,500,1000,2000,5000]:
+        #     m_diagn[count] = report_memory()
+        #     if count == 5000:
+        #         return count, WORLD, times
             
 
         
@@ -569,23 +607,28 @@ if __name__ == '__main__':
         countc, worldc, timesc = run()
         avg = {k: v/countc for k, v in timesc.items()}
     
-    except:
+    finally:
         import pandas as pd
-        df = pd.DataFrame(diagnostics)
-        dictt = diagnostics[1]
-        cols = df.columns
-        for col in cols:
-            if col != 'SHIP P':
-                try:
-                    len(dictt[col])
-                    df[f'{col} SPEED'] = np.nan
-                    df[f'{col} DIR'] = np.nan
-                    for row in range(len(df)):
-                        print(col, row)
-                        df.loc[row, f'{col} SPEED'] = np.sqrt(df.loc[row, col][0]**2 + df.loc[row, col][1]**2)
-                        df.loc[row, f'{col} DIR'] = np.arctan2(df.loc[row, col][1], df.loc[row, col][0])
-                except TypeError:
-                    pass
+        # df = pd.DataFrame(diagnostics)
+        # dictt = diagnostics[1]
+        # cols = df.columns
+        # for col in cols:
+        #     if col != 'SHIP P':
+        #         try:
+        #             len(dictt[col])
+        #             df[f'{col} SPEED'] = np.nan
+        #             df[f'{col} DIR'] = np.nan
+        #             for row in range(len(df)):
+        #                 print(col, row)
+        #                 df.loc[row, f'{col} SPEED'] = np.sqrt(df.loc[row, col][0]**2 + df.loc[row, col][1]**2)
+        #                 df.loc[row, f'{col} DIR'] = np.arctan2(df.loc[row, col][1], df.loc[row, col][0])
+        #         except TypeError:
+        #             pass
+
+        mdf = pd.DataFrame(m_diagn)
+
+
+
 
 
 

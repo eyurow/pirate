@@ -37,7 +37,7 @@ def generate_line(p1, p2, thick = 1, thick_quotient = .5, thick_offset = -1, num
     antislope:                  slope of base line
     thick_offset_front/back:    points which form boundaries along base line from which !num_lines are drawn
 
-    thick:                      number of non-dom pixels to draw per dominant pixel given a perpendicular line
+    thick:                      number of non-dom pixels to draw per dominant pixel given an x/y-perpendicular line
     thick_param:                permutation of !thick for calculation of !antiline
     num_lines:                  number of lines to draw against base line when calculating pixels
     thick_offset:               addition/reduction to !thick when calculating !thick_param
@@ -169,4 +169,29 @@ def generate_compass(radius = 10, offset = (0,0)):
     y_line = generate_perpendicular_line((offset[0], offset[1] + radius), (offset[0], offset[1] - radius), thick = 2)
 
     return np.concatenate([circle, x_line, y_line], axis = 1)
+
+
+def generate_arrow(p1, p2, line_thick, head_thick):
+    line = generate_solid_line(p1, p2, line_thick)
+
+
+def generate_curve(radius = 5, xy_ratio = 2, offset = (0,0)):
+    # xy_ratio: # of x-steps per y-step
+    x = radius 
+    y = 0
+    
+    xs = []
+    ys = []
+    while y <= x / xy_ratio:
+        if (x**2) + (y**2) <= x * (x / xy_ratio):
+            xs.append(x)
+            ys.append(y)
+            y += 1
+        else:
+            x -= 1
+            xs.append(x)
+            ys.append(y)
+            y += 1
+        
+    return np.array([xs, ys], dtype = int)
 

@@ -90,13 +90,24 @@ def compare_angles(a1, a2):
     
     return diff
 
+def normalize_angle(angle):
+    # if angle > np.pi or angle <= -np.pi:
+    _abs = abs(angle)
+    sign = int(_abs / angle)
+    revolutions = _abs//np.pi
+    remaining = _abs%np.pi
+    norm = (-sign * np.pi * (revolutions%2)) + sign * remaining
+    return norm
+    # else:
+    #     return angle
 
 def clockwise_distance(a1, a2):
+    if a1 > np.pi or a1 <= -np.pi:
+        a1 = normalize_angle(a1)
     if a2 > a1:
         return a1 - (a2 - np.pi*2)
     else:
         return a1 - a2
-
 
 
 ## Array Transforms
@@ -147,7 +158,7 @@ def normalize_angles(array):
 
 
 
-## Main Loop Flow
+## Wind/Current Sim Loop Flow
 def get_ref_angle(shift_index):
     if shift_index == (0,-1):
         return np.pi/2
