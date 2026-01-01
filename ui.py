@@ -1,8 +1,8 @@
 import numpy as np
 import pygame
 import pygame.surfarray as sa
-from vis import *
-from generics import get_margin
+from vis import pa_fill_color, fill_color_light, fill_color_sun, fill_ind_colors
+from generics import DBZ, get_margin
 from shapes import generate_compass, generate_patterned_line
 
 
@@ -158,12 +158,12 @@ class InfoBox(Rectangle):
 
     def generate_info(self, current_x, current_y, winds_x, winds_y, r, g, b):
         self.xcurrents_text = sa.pixels2d(self.font.render(f'CURRENTS: {current_x:.2f}', 0, self.text_color))
-        self.ycurrents_text = sa.pixels2d(self.font.render(f'                    {current_y:.2f}', 0, self.text_color))
-        self.xwinds_text = sa.pixels2d(self.font.render(   f'WINDS:        {winds_x:.2f}', 0, self.text_color))
-        self.ywinds_text = sa.pixels2d(self.font.render(   f'                    {winds_y:.2f}', 0, self.text_color))
-        self.r_text = sa.pixels2d(self.font.render(        f'RED:          {r}', 0, self.text_color))
+        self.ycurrents_text = sa.pixels2d(self.font.render(f'          {current_y:.2f}', 0, self.text_color))
+        self.xwinds_text = sa.pixels2d(self.font.render(   f'WINDS:    {winds_x:.2f}', 0, self.text_color))
+        self.ywinds_text = sa.pixels2d(self.font.render(   f'          {winds_y:.2f}', 0, self.text_color))
+        self.r_text = sa.pixels2d(self.font.render(        f'RED:      {r}', 0, self.text_color))
         self.g_text = sa.pixels2d(self.font.render(        f'GREEEN:   {g}', 0, self.text_color))
-        self.b_text = sa.pixels2d(self.font.render(        f'BLUE:        {b}', 0, self.text_color))
+        self.b_text = sa.pixels2d(self.font.render(        f'BLUE:     {b}', 0, self.text_color))
 
         current_str = np.sqrt(current_y**2 + current_x**2)
         adjusted_curr_str = np.arctan(current_str) / (np.pi/2)
