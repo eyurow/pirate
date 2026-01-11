@@ -77,29 +77,15 @@ def calc_normal_carts_to_position(index, position, handle = 1, return_distance =
         return x, y, distance
     else:
         return x, y
-    
-def compare_angles(a1, a2):
-    # clockwise, a1 > a2
-    if a1 < 0 and a2 > 0:
-        diff = a1 - (a2 - 2*np.pi)
-    else:
-        diff = a1 - a2
-    
-    # if diff < 0:
-    #     diff += 2*np.pi
-    
-    return diff
 
 def normalize_angle(angle):
-    # if angle > np.pi or angle <= -np.pi:
+    # Normalized angle to pi:-pi range
     _abs = abs(angle)
     sign = int(_abs / angle)
     revolutions = _abs//np.pi
     remaining = _abs%np.pi
     norm = (-sign * np.pi * (revolutions%2)) + sign * remaining
     return norm
-    # else:
-    #     return angle
 
 def clockwise_distance(a1, a2):
     if a1 > np.pi or a1 <= -np.pi:
@@ -138,6 +124,8 @@ def shift_array(arr, num, y = False, fill = 0):
 
 
 def normalize_angles(array):
+    # array: array of thetas
+    # returns thetas normalized to a pi/4 arc section
     normal = np.zeros(array.shape)
     
     normal[ (array <= np.pi/2)&(array >= np.pi/4) ] = array[ (array <= np.pi/2)&(array >= np.pi/4) ] 
@@ -154,28 +142,6 @@ def normalize_angles(array):
     normal[ (array < 3*np.pi/4)&(array > np.pi/2) ] = np.absolute( array[ (array < 3*np.pi/4)&(array > np.pi/2) ] - np.pi )
     
     return normal
-
-
-
-
-## Wind/Current Sim Loop Flow
-def get_ref_angle(shift_index):
-    if shift_index == (0,-1):
-        return np.pi/2
-    elif shift_index == (1,-1):
-        return np.pi/4
-    elif shift_index == (1,0):
-        return 0
-    elif shift_index == (1,1):
-        return -np.pi/4
-    elif shift_index == (0,1):
-        return -np.pi/2
-    elif shift_index == (-1,1):
-        return -3*np.pi/4
-    elif shift_index == (-1,0):
-        return np.pi
-    elif shift_index == (-1,-1):
-        return 3*np.pi/4
     
 normal_compare_angles = np.linspace((np.pi/4) + (np.pi/4 / 10), (np.pi/2) - (np.pi/4 / 10), 5)     
     

@@ -1,13 +1,13 @@
-from generics import vector_length, DBZ, normalize_angles, normal_compare_angles, rotation_map, rotate_subarray, shift_array
-from indices import index_shape, get_start_pixels, get_pixel_indices
-from textures.triangles_indices import angle_triangle_map
-from textures.str_map import angle_triangle_mapp
-from textures.textures import particle, ship, rotate, rotate2, rotate_texture
+from algorithms.generics import vector_length, DBZ, normalize_angles, normal_compare_angles, rotation_map, rotate_subarray, shift_array
+from algorithms.indices import index_shape, get_start_pixels, get_pixel_indices
+from visuals.textures.triangles_indices import angle_triangle_map
+from visuals.textures.str_map import angle_triangle_mapp
+from visuals.textures.textures import particle, ship, rotate, rotate2, rotate_texture
 import numpy as np
 
 import pygame
 from pygame import Rect
-pygame.font.init()
+# pygame.font.init()
     
 
 

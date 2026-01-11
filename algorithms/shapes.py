@@ -1,5 +1,5 @@
 import numpy as np
-from generics import DBZ, DBZArray, get_margin
+from algorithms.generics import DBZ, DBZArray, get_margin
 
 
 def generate_perpendicular_line(p1, p2, thick = 1):

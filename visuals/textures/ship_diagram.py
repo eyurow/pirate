@@ -2,10 +2,10 @@ import sys
 sys.path.append('..')
 
 import numpy as np
-from shapes import generate_thick_circle, generate_perpendicular_line, generate_solid_line
-from indices import index_range, get_pixel_indices
+from algorithms.shapes import generate_thick_circle, generate_perpendicular_line, generate_solid_line
+from algorithms.indices import index_range, get_pixel_indices
 from ships import Ship, Sail
-from textures.textures import rotate_index_array
+from visuals.textures.textures import rotate_index_array
 
 
 

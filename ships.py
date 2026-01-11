@@ -11,7 +11,7 @@
 
 
 import numpy as np
-from generics import clockwise_distance, DBZ, compare_angles, normalize_angle
+from algorithms.generics import clockwise_distance
 
 AIR_DENSITY = 1.225 # g/ml, 1.225 kg/m3 # TODO: world attribute
 WATER_DENSITY = 1000 

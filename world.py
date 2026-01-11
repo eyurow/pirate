@@ -1,6 +1,6 @@
-from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
-from shapes import generate_circle, generate_thick_circle
-from indices import get_indices_within_bounds
+from algorithms.generics import DBZ, rrange, calc_normal_carts_to_position, vector_length #get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
+from algorithms.shapes import generate_circle, generate_thick_circle
+from algorithms.indices import get_indices_within_bounds
 import numpy as np
 
 
@@ -35,8 +35,6 @@ def generate_index(start, direction, length, width = 1):
                 y_ind.append(int( start[1] + d ))
     
     return np.array([np.array(x_ind), np.array(y_ind)], dtype = int)
-
-
 class Wind:
     def __init__(self, location, strength, direction = None, xy = None, x = None, y = None): # add size and strength per size unit?
         self.location = location
@@ -59,17 +57,12 @@ class Wind:
     
     def world_points(self):
         # return array of points on world array where this object exists
-        pass
-
-            
-                
+        pass          
 def calc_bresenham_params(x, y):
     if abs(x) >= abs(y):
         return abs(x), abs(y), DBZ(abs(x), x, 0), DBZ(abs(y), y, 0), 'x' # dom size, non dom size, dom step, non-dom step, orientation
     else:
         return abs(y), abs(x), DBZ(abs(y), y, 0), DBZ(abs(x), x, 0), 'y'
-           
-            
 class WindGroup:
     def __init__(self, start, dimensions, strength, direction = None, xy = None, x = None, y = None, duration = -1, movement = 0, decay = False):
         self.start = start # tuple e.g. 0,10
@@ -126,9 +119,7 @@ class WindGroup:
                 elif self.orientation == 'y':
                     self.index[0] = self.index[0] + self.nd_step
             
-            self.error -= self.nd_size * self.movement
-                
-                
+            self.error -= self.nd_size * self.movement             
 class WindIndex:
     def __init__(self):
         pass

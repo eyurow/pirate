@@ -1,8 +1,8 @@
 
 
 import numpy as np
-from indices import get_pixel_indices, get_start_pixels
-from generics import normalize_angles, normal_compare_angles
+from algorithms.indices import get_pixel_indices, get_start_pixels
+from algorithms.generics import normalize_angles, normal_compare_angles
 
 # 30, 120, 110 good sea blue/green
 # cloudy dark blue: 25, 109, 158
