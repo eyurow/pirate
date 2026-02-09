@@ -7,9 +7,14 @@ import pygame
 import pygame.surfarray as sa
 pygame.font.init()
 
-from main_modules import renderer, input_handler
+from renderer.renderer import Renderer
+from input_handler.input_handler import InputHandler
 from world import World, Particles
 from ships import Ship
+
+from basics.shapes import generate_triangle
+from basics.indices import rotate_index_array, get_centered_index_array
+from basics.IndexArray import IndexArray
 
 np.set_printoptions(precision = 1, threshold = 1600, suppress = True)
 
@@ -62,7 +67,6 @@ diagnostics = [] # ship diagnostics
 m_diagn = {} # memory diagnostics
 
 def run():
-    # global WORLD, RUN, ESC_MENU, RENDERER
 
     pygame.init()
     # WORLD = World((500,300), 16) # 100,60
@@ -82,21 +86,19 @@ def run():
     WORLD.SUN = (0,0)
     
 
-    ship = Ship(world = WORLD, position = (100,150), heading = -np.pi/2)
+    ship = Ship(world = WORLD, position = (100,150), heading = 0)
     # ship.main_sail.area = 0
     ship.main_sail.set = -np.pi/2
     ship.main_sail.give = -np.pi/6
     particles = Particles(12, WORLD, type = 'grid')
 
     SCREEN = Screen(WIDTH, HEIGHT)
-    RENDERER = renderer.Renderer(SCREEN, WORLD, CELL_SIZE)
-    INP_HANDLER = input_handler.InputHandler(SCREEN, RENDERER, WORLD)
-    # ESC_MENU = EscapeMenu(owner = RENDERER, pos = ((RENDERER.PA_SIZE[0] - 1000)//2, (RENDERER.PA_SIZE[1] - 550)//2))
+    RENDERER = Renderer(SCREEN, WORLD, CELL_SIZE)
+    INP_HANDLER = InputHandler(SCREEN, RENDERER, WORLD)
     RUN = True
 
     count = 0
     
-    sun_index = 0
     clock = pygame.time.Clock()
     times = {
         'Sim':0,
@@ -135,9 +137,11 @@ def run():
         RENDERER.draw_ship_zx_diagram(ship)
 
         RENDERER.draw_post()
+
         SCREEN.update_display()
         RENDERER.clear_post()
         times['Render'] += clock.tick_busy_loop() / 1000
+
 
 
         

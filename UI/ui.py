@@ -1,9 +1,10 @@
 import numpy as np
 import pygame
 import pygame.surfarray as sa
-from visuals.vis import pa_fill_color, fill_color_light, fill_color_sun, fill_ind_colors
-from algorithms.generics import DBZ, get_margin
-from algorithms.shapes import generate_compass, generate_patterned_line
+
+from renderer.drawing_funcs.world import pa_fill_color, fill_color_light, fill_color_sun, fill_ind_colors
+from basics.generics import DBZ, get_margin
+from basics.shapes import generate_compass, generate_patterned_line
 
 
 
@@ -129,13 +130,16 @@ class KeyContext:
 
 
 class Rectangle:
-    def __init__(self, pos, size, color = None, border_color = (0,0,0), owner = None):
+    def __init__(self, pos = (0,0), size = (10,10), color = (100,100,100), border_color = (0,0,0), owner = None):
         self.pos = pos # position relative to container 
         self.size = size
         self.color = color
         self.border_color = border_color
         self.owner = owner # pointer to container, e.g. EscapeMenu
-        self.pa_pos = (self.owner.pa_pos[0] + self.pos[0], self.owner.pa_pos[1] + self.pos[1]) # absolute position within PA
+        if owner:
+            self.pa_pos = (self.owner.pa_pos[0] + self.pos[0], self.owner.pa_pos[1] + self.pos[1]) # absolute position within PA
+        else:
+            self.pa_pos = (self.pos[0], self.pos[1])
         # self.generate()
 
     def generate(self, pos = None, size = None):

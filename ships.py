@@ -11,7 +11,7 @@
 
 
 import numpy as np
-from algorithms.generics import clockwise_distance
+from basics.angles import clockwise_distance
 
 AIR_DENSITY = 1.225 # g/ml, 1.225 kg/m3 # TODO: world attribute
 WATER_DENSITY = 1000 
@@ -55,12 +55,19 @@ class Ship:
         self.main_sail = Sail(ship = self)
         self.volume = self.hull_length * self.hull_width * self.hull_height * self.block_coefficient
         self.weight = 15*1016 # tons -> kgs 
+
         self.x_accel = 0
         self.y_accel = 0
         self.x = 0 # velocity-x
         self.y = 0 # velocity-y
         self.d = 0 # forward (driving) acceleration in reference to heading
         self.l = 0 # lateral acceleration relative to heading
+
+        self.APP_WIND = (0,0)
+        self.WIND = (0,0)
+        self.APP_CURR = (0,0)
+        self.CURR = (0,0)
+
         self.heeling_angle = 0 # straight up
         self.heeling_inertia = self.weight * ((self.hull_width + (self.hull_height + self.main_sail.height)) / 2)**2
         self.righting_inertia = self.weight * ((self.hull_width + self.hull_height) / 2)**2
@@ -77,6 +84,8 @@ class Ship:
         wind_x = self.world.WINDS[int(self.position[0]), int(self.position[1]), 0]
         wind_y = self.world.WINDS[int(self.position[0]), int(self.position[1]), 1]
         print('Winds: ', wind_x, wind_y)
+        self.APP_WIND = (wind_x - self.x, wind_y - self.y)
+        self.WIND = (wind_x, wind_y)
         return (wind_x - self.x, wind_y - self.y)
     
     @property
@@ -84,6 +93,8 @@ class Ship:
         current_x = self.world.CURRENTS[int(self.position[0]), int(self.position[1]), 0]
         current_y = self.world.CURRENTS[int(self.position[0]), int(self.position[1]), 1]
         print('Currents: ', current_x, current_y)
+        self.APP_CURR = (current_x - self.x, current_y - self.y)
+        self.CURR = (current_x, current_y)
         return (current_x - self.x, current_y - self.y)
     
     def find_center_of_balance(self):
@@ -159,7 +170,21 @@ class Ship:
 
 
 
-
+def compare_wind_and_sail3(wind, sail):
+    print('SAIL-WIND: ', sail.ship.heading - sail.set, wind)
+    zone = np.pi + sail.give 
+    if sail.give >= 0:
+        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
+        if wind_diff < zone and wind_diff != 0: # is wind in range of sail given give?
+            return None
+        else:
+            return (wind_diff - zone >= (np.pi - sail.give)/2) or wind_diff == 0 # True if wind is closer to set than end
+    elif sail.give < 0:
+        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
+        if wind_diff > zone:
+            return None
+        else:
+            return wind_diff <= zone / 2
 
 def wind_impact_on_sail(wind = (-7, 10), sail = Sail(), diagnostics = None):
     #print(wind)
@@ -256,6 +281,11 @@ def current_impact_on_ship(current = (10,0), ship = Ship(), diagnostics = None):
     force_current_x = delta_current_x * water_mass
     force_current_y = delta_current_y * water_mass
 
+
+    # drag coefficient
+
+
+
     # try:
     #     diagnostics[-1]['F SHIP'] = (-force_current_x / ship.weight, -force_current_y / ship.weight)
     #     diagnostics[-1]['WATER MASS'] = water_mass
@@ -280,52 +310,23 @@ def current_impact_on_ship(current = (10,0), ship = Ship(), diagnostics = None):
     print('K: ', torque)
 
 
-def compare_wind_and_sail(wind, sail):
-    final_theta = sail.set - np.pi - sail.give
-    if final_theta <= -np.pi:
-        final_theta += 2*np.pi
+def decompose_force(force_x, force_y, force_mag, comparison_theta): # force_x/y are force on ship, not accel or force on water/air
+    '''
+    comparison_theta: set to ship heading for driving/lateral decomposition or current/wave theta for lift/drag
 
-    if sail.give >= 0:
-        # final is counterclockwise around circle from set
-        _wind = wind if wind >= 0 or sail.set < 0 else wind + 2*np.pi
-        final_theta = final_theta if final_theta >= 0 or sail.set < 0 else final_theta + 2*np.pi
-        #Notes - -pi sail set w/ pi wind should return True but doesn't
-        return _wind >= sail.set and _wind <= final_theta
+    returns:
+        ( driving, lateral ) or ( drag, lift )
+    '''
+    force_theta = np.arctan2(force_y, force_x)
+    theta = force_theta - comparison_theta
+    x = np.cos(theta) * force_mag
+    y = np.sin(theta) * force_mag
+    return x, y
 
-    elif sail.give < 0:
-        _wind = wind + 2*np.pi if wind < 0 and final_theta > 0 else wind
-        init_theta = sail.set + 2*np.pi if sail.set < 0 and _wind >= 0 else sail.set
+def calc_drag_coefficient(drag_force, area, fluid_density, flow_speed):
+    return ( 2 * drag_force ) / ( fluid_density * flow_speed**2 * area )
 
-        return _wind <= init_theta and _wind >= final_theta   
-def compare_wind_and_sail2(wind, sail):
-    final_theta = sail.set - np.pi - sail.give
-    if final_theta <= -np.pi:
-        final_theta += 2*np.pi
 
-    if sail.give >= 0:
-        no_zone = compare_angles(sail.set, final_theta)
-        wind_diff = compare_angles(sail.set, wind)
-        return not wind_diff < no_zone
-    
-    elif sail.give < 0:
-        no_zone = compare_angles(final_theta, sail.set)
-        wind_diff = compare_angles(final_theta, wind)
-        return not wind_diff < no_zone
-def compare_wind_and_sail3(wind, sail):
-    print('SAIL-WIND: ', sail.ship.heading - sail.set, wind)
-    zone = np.pi + sail.give 
-    if sail.give >= 0:
-        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
-        if wind_diff < zone and wind_diff != 0: # is wind in range of sail given give?
-            return None
-        else:
-            return (wind_diff - zone >= (np.pi - sail.give)/2) or wind_diff == 0 # True if wind is closer to set than end
-    elif sail.give < 0:
-        wind_diff = clockwise_distance(sail.ship.heading - sail.set, wind)
-        if wind_diff > zone:
-            return None
-        else:
-            return wind_diff <= zone / 2
 
 
 def sail_impact_on_ship(sail, ship):

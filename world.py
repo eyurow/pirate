@@ -1,7 +1,10 @@
-from algorithms.generics import DBZ, rrange, calc_normal_carts_to_position, vector_length #get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
-from algorithms.shapes import generate_circle, generate_thick_circle
-from algorithms.indices import get_indices_within_bounds
 import numpy as np
+
+from basics.generics import DBZ, rrange, vector_length #get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
+from basics.shapes import generate_circle, generate_thick_circle
+from basics.indices import get_indices_within_bounds
+from basics.arrays import calc_normal_carts_to_position
+
 
 
 def generate_index(start, direction, length, width = 1):
