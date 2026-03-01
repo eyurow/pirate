@@ -2,7 +2,7 @@ import numpy as np
 import pygame
 
 from renderer.drawing_funcs.world import *
-from UI.ui import EscapeMenu, InfoBox
+from UI.basics import Context
 
 
 def wait_for_input(mouse_movement = False):
@@ -94,21 +94,30 @@ def receive_inputs(mouse_movement = False):
         
 
 class InputHandler:
-    def __init__(self, screen, renderer, world = None):
+    def __init__(self, screen, renderer, ui, world = None, ship = None):
         self.screen = screen
         self.renderer = renderer
-        self.world = world
+        self.ui = ui
+        self.ui.input_handler = self
 
-        self.ESC_MENU = EscapeMenu(owner = self.renderer, pos = ((self.renderer.PA_SIZE[0] - 1000)//2, (self.renderer.PA_SIZE[1] - 550)//2))
-        self.info_box = InfoBox(owner = self.renderer)
+        self.world = world
+        self.ship = ship
 
         self.context = 'run'
+        self.live_context = Context(self)
         self.queue = []
         self.mouse_movement = False
         self.lmb_mode = False
         self.rmb_mode = False
         self.add_land = []
         self.pa_pos = (0,0)
+
+    @property
+    def ESC_MENU(self):
+        return self.renderer.ESC_MENU
+    @property
+    def info_box(self):
+        return self.renderer.info_box
         
 
     def generate_info_box(self, pos):
@@ -182,8 +191,6 @@ class InputHandler:
 
     
     def handle(self):
-        # global WORLD
-
         handling = True
         events = []
         # events = pygame.event.get()

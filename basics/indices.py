@@ -1,5 +1,8 @@
 import numpy as np
 
+DEFAULT_ARRAY_ROUNDING = np.round
+DEFAULT_SINGLE_ROUNDING = round
+
 
 def get_start_pixels(world_indices, cell_size):
     # Convert world indices to PixelArray top-left corner indixes
@@ -11,10 +14,9 @@ def get_current_triangle_indices(thetas, left_bound, right_bound, strengths):
 
 def index_range(index_array, size, pixel_indices = None):
     # Get full PixelArray index tuples for given shape (as size) or square axis ranges
-    if pixel_indices: # set pixel indices to True and place current triangle indices in size for all indices correspoding to triangle
+    if pixel_indices: # equivalent to index_shape
         return index_array[:, None] + size[None]
-    else: # Get sqauare axis ranges from start indices
-        # same as np.outer(ind_array, range(size))
+    else: # equivalent to index_block
         return index_array[:, None] + np.arange(stop = size)[None]
     
 def index_shape(index_array, shape_array):
@@ -37,6 +39,7 @@ def get_pixel_indices(start_indices, cell_size):
     return (x_rep.ravel(), y_rep.ravel())
 
 def get_indices_within_bounds(indices, x_max, y_max, x_min = 0, y_min = 0):
+    # trim in IndexArray class
     return indices[:, (indices[0] < x_max)&
                       (indices[0] >= x_min)&
                       (indices[1] < y_max)&

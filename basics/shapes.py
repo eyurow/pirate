@@ -220,8 +220,11 @@ def generate_compass(radius = 10, offset = (0,0)):
 
 
 def generate_arrow(p1, p2, line_thick, head_thick):
-    line = generate_solid_line(p1, p2, line_thick)
     slope = np.arctan2(p1[1] - p2[1], p1[0] - p2[0]) # reverse - from p2 to p1
+    line_p2 = (p2[0] + np.cos(slope) * head_thick, p2[1] + np.sin(slope) * head_thick) # draw from p1 to start of head (p2 to is tip of head)
+
+    line = generate_solid_line(p1, line_p2, line_thick)
+
     h1 = (p2[0] + np.cos(slope - np.pi/6) * head_thick, p2[1] + np.sin(slope - np.pi/6) * head_thick)
     h2 = (p2[0] + np.cos(slope + np.pi/6) * head_thick, p2[1] + np.sin(slope + np.pi/6) * head_thick)
     head = generate_triangle(h1, h2, p2, interior = True)

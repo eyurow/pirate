@@ -1,7 +1,8 @@
 import numpy as np
+import pygame
 
-from UI.basics import Rectangle, Button
-from renderer.drawing_funcs import *
+from UI.basics import Rectangle, Button, Context
+from renderer.drawing_funcs.world import *
 
 
 class EscapeMenu(Rectangle):
@@ -86,7 +87,7 @@ class ViewButton(Button):
 
 ### OPTION 1 - indiv buttons for each dropdown option
 class OrigViewButton(Button):
-    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'base'):
+    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
     # def generate(self):
     #     super().generate()
@@ -95,21 +96,21 @@ class OrigViewButton(Button):
         self.owner.refresh_base()
 
 class LightViewButton(Button):
-    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'base'):
+    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
     def press(self, handler):
         self.owner.owner.set_draw(fill_color_light)
         self.owner.refresh_base()
 
 class SunViewButton(Button):
-    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'base'):
+    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
     def press(self, handler):
         self.owner.owner.set_draw(fill_color_sun)
         self.owner.refresh_base()
 
 class DramaViewButton(Button):
-    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'base'):
+    def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
     def press(self, handler):
         self.owner.owner.set_draw(fill_ind_colors)

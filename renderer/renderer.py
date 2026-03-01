@@ -5,12 +5,17 @@ from basics.generics import get_margin
 from basics.shapes import generate_line, generate_patterned_line, generate_perpendicular_line
 from renderer.drawing_funcs.world import *
 from renderer.drawing_funcs.world_objects import *
-from UI.ship_diagram import zx_diagram, xy_diagram
+from UI.live import InfoBox, ZYDiagram, XYDiagram
+from old.ship_diagram import zx_diagram, xy_diagram
+from UI.esc_menu import EscapeMenu
 
 class Renderer:
-    def __init__(self, screen, world, cell_size):
+    def __init__(self, screen, ui, world, cell_size, ship):
         self.screen = screen
+        self.ui = ui
+        self.ui.renderer = self
         self.world = world
+        self.ship = ship
         self.PA = None
         self.PA_SIZE = (0,0)
         self.CELL_SIZE = cell_size
@@ -24,6 +29,13 @@ class Renderer:
 
         self.refresh_PA()
         self.set_pixelarray()
+
+        ## UI Elements
+        self.ESC_MENU = EscapeMenu(owner = self, pos = ((self.PA_SIZE[0] - 1000)//2, (self.PA_SIZE[1] - 550)//2))
+        self.info_box = InfoBox(owner = self)
+        self.XYDiagram = XYDiagram(owner = self, pos = (self.PA_SIZE[0] - 130 - 10, self.PA_SIZE[1] - 130 - 10), size = 'small', ship = ship)
+        self.ZYDiagram = ZYDiagram(owner = self, pos = (self.PA_SIZE[0] - 260 - 20, self.PA_SIZE[1] - 130 - 10), size = 'small', color = (0,0,0), ship = ship)
+
 
     def __getitem__(self, index):
         return self.PA[index]
@@ -118,23 +130,35 @@ class Renderer:
 
         func_string = f'def _DRAW(self): {string}'
         exec(func_string, globals())
-        
+
 
     def draw_rectangle(self, rect):
-        if rect.color:
-            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.color
-        if rect.border_color:
-            self.PA[rect.pa_pos[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
-            self.PA[rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
-            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]] = rect.border_color
-            self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.color
 
-    def draw_index_array(self, array, color):
+        # self.PA[rect.pa_pos[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        # self.PA[rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        # self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]] = rect.border_color
+        # self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
+
+    def draw_index_array(self, array, color = (0,0,0)):
         self.PA[(array[0], array[1])] = color
 
-    def draw_texture_array(self, texture, pos, color):
+    def draw_pixel_index(self, array):
+        self.PA[(array[0], array[1])] = (self.PA[(array[0], array[1])] * (1 - array.opacity) ) + (array.color * array.opacity)
+
+    def draw_texture_array(self, texture, pos):
         self.PA[pos[0]:pos[0] + texture.shape[0], 
                 pos[1]:pos[1] + texture.shape[1]] = texture.color
+        
+    def draw_xy_diagram(self):
+        self.XYDiagram.generate_abs()
+        self.draw_rectangle(self.XYDiagram)
+        self.draw_index_array(self.XYDiagram.pixel_index, self.XYDiagram.text_color)
+    
+    def draw_zx_diagram(self):
+        self.ZYDiagram.generate_index()
+        self.draw_rectangle(self.ZYDiagram)
+        self.draw_index_array(self.ZYDiagram.pixel_index, self.ZYDiagram.text_color)
 
 
     def draw_button(self, button, menu_pos = (0,0)):
@@ -174,9 +198,9 @@ class Renderer:
         adjusted = (idx[0] + info_box.pa_pos[0], idx[1] + info_box.pa_pos[1])
         self.PA[adjusted] = (50,150,175)
 
-    def draw_ship_zx_diagram(self, ship):
-        x_range, y_range, zx_diag = zx_diagram(ship, 'small')
-        start_x = x_range[0] + self.PA_SIZE[0] - (x_range[1] * 2) - (10 * 2) # two diagrams from bottom right corner, 10 pix buffer
+    def draw_ship_zy_diagram(self, ship):
+        x_range, y_range, zx_diag = zx_diagram(ship, 'small',  self.ZYDiagram.static_index)
+        start_x = 10#x_range[0] + self.PA_SIZE[0] - (x_range[1] * 2) - (10 * 2) # two diagrams from bottom right corner, 10 pix buffer
         start_y = y_range[0] + self.PA_SIZE[1] - y_range[1] - 10
 
         self.PA[start_x:start_x + x_range[1],start_y:start_y + y_range[1]] = (0,0,0)
@@ -184,7 +208,7 @@ class Renderer:
 
     def draw_ship_xy_diagram(self, ship):
         x_range, y_range, xy_diag = xy_diagram(ship, 'small')
-        start_x = x_range[0] + self.PA_SIZE[0] - x_range[1] - 10 # one diagram from bottom right corner, 10 pix buffer
+        start_x = 20 + x_range[1]#x_range[0] + self.PA_SIZE[0] - x_range[1] - 10 # one diagram from bottom right corner, 10 pix buffer
         start_y = y_range[0] + self.PA_SIZE[1] - y_range[1] - 10
 
         self.PA[start_x:start_x + x_range[1],start_y:start_y + y_range[1]] = (0,0,0)
@@ -202,20 +226,3 @@ class Renderer:
         self.PA[tuple(line)] = color
     
 
-
-    
-
-
-
-
-class Test:
-    def __init__(self):
-        self.array = np.zeros((10,10))
-        self.draw = 'a'
-    
-    def __getitem__(self, index):
-        return self.array[index]
-    def __setitem__(self, index, value):
-        self.array[index] = value
-    def __getattr__(self, property):
-        return self.array.__getattribute__(property)

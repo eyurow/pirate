@@ -67,14 +67,14 @@ class PositionContext: # For button and hover maps
         self.active = []
 
     def register_component(self, component):
-        # add top-left (0,1) and bottom-right (2,3) corners of rectangle (button, dropdown) and key (4)
-        # Most recently registered component at top of list
+        # add top-left (idx 0,1) and bottom-right (2,3) corners of rectangle (button, dropdown) and id (4)
+        # Most recently registered component at front of list
 
         add = np.zeros((5, 1), dtype = int)
-        add[0] = self.owner.pos[0] + component.pos[0]
-        add[1] = self.owner.pos[1] + component.pos[1]
-        add[2] = self.owner.pos[0] + component.pos[0] + component.size[0]
-        add[3] = self.owner.pos[1] + component.pos[1] + component.size[1]
+        add[0] = component.pa_pos[0]
+        add[1] = component.pa_pos[1]
+        add[2] = component.pa_pos[0] + component.size[0]
+        add[3] = component.pa_pos[1] + component.size[1]
         add[4] = self.key_idx
 
         self.map = np.concatenate([add, self.map], axis = 1)

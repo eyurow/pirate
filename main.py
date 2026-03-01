@@ -2,6 +2,8 @@ import numpy as np
 import json
 import psutil
 import os
+import sys
+import traceback
 
 import pygame
 import pygame.surfarray as sa
@@ -9,12 +11,11 @@ pygame.font.init()
 
 from renderer.renderer import Renderer
 from input_handler.input_handler import InputHandler
+from UI.ui import UserInterface
 from world import World, Particles
 from ships import Ship
 
-from basics.shapes import generate_triangle
-from basics.indices import rotate_index_array, get_centered_index_array
-from basics.IndexArray import IndexArray
+
 
 np.set_printoptions(precision = 1, threshold = 1600, suppress = True)
 
@@ -66,6 +67,8 @@ PA = None
 diagnostics = [] # ship diagnostics
 m_diagn = {} # memory diagnostics
 
+
+
 def run():
 
     pygame.init()
@@ -86,15 +89,17 @@ def run():
     WORLD.SUN = (0,0)
     
 
-    ship = Ship(world = WORLD, position = (100,150), heading = 0)
-    # ship.main_sail.area = 0
-    ship.main_sail.set = -np.pi/2
-    ship.main_sail.give = -np.pi/6
+    SHIP = Ship(world = WORLD, position = (100,150), heading = -np.pi/4 - .4)
+    SHIP.main_sail.tack(pivot = np.pi/2 - .15)
+    # SHIP.rudder.tack(pivot = 3*np.pi/4)
+
     particles = Particles(12, WORLD, type = 'grid')
 
     SCREEN = Screen(WIDTH, HEIGHT)
-    RENDERER = Renderer(SCREEN, WORLD, CELL_SIZE)
-    INP_HANDLER = InputHandler(SCREEN, RENDERER, WORLD)
+    UI = UserInterface(WORLD, SHIP)
+    RENDERER = Renderer(SCREEN, UI, WORLD, CELL_SIZE, SHIP)
+    INP_HANDLER = InputHandler(SCREEN, RENDERER, UI, WORLD, SHIP)
+
     RUN = True
 
     count = 0
@@ -113,11 +118,11 @@ def run():
         # WORLD.sim()
         WORLD.test_sim()
         particles.sim_particles()
-        ship.sim(diagnostics)
+        SHIP.sim(diagnostics)
         times['Sim'] += clock.tick_busy_loop() / 1000
 
-        WORLD.WINDS[30:90,100:200,0] = 3
-        WORLD.WINDS[30:90,100:200,1] = 0
+        WORLD.WINDS[90:150,100:200,0] = -20
+        WORLD.WINDS[90:150,100:200,1] = -20
 
         # diagnostics.append({'WINDS': WORLD.WINDS[int(ship.position[0]), int(ship.position[1])],
         #                     'CURRENTS': WORLD.CURRENTS[int(ship.position[0]), int(ship.position[1])],
@@ -132,9 +137,14 @@ def run():
 
         RENDERER.draw_world()
         RENDERER.draw_particles(particles)
-        RENDERER.draw_ship(ship)
-        RENDERER.draw_ship_xy_diagram(ship)
-        RENDERER.draw_ship_zx_diagram(ship)
+        RENDERER.draw_ship(SHIP)
+        # SHIP.heading = np.cos(count/100)
+        # SHIP.heeling_angle = 0
+        RENDERER.XYDiagram.generate_abs()
+        RENDERER.XYDiagram.draw(RENDERER)# RENDERER.draw_xy_diagram()
+        RENDERER.draw_zx_diagram()
+        RENDERER.draw_ship_xy_diagram(SHIP)
+        RENDERER.draw_ship_zy_diagram(SHIP)
 
         RENDERER.draw_post()
 
@@ -163,8 +173,13 @@ if __name__ == '__main__':
     try:
         countc, worldc, timesc = run()
         avg = {k: v/countc for k, v in timesc.items()}
-    
+
+    except Exception:
+        print(traceback.format_exc())
+        sys.exit(1)
+
     finally:
+        print('done')
         import pandas as pd
         # df = pd.DataFrame(diagnostics)
         # dictt = diagnostics[1]
@@ -183,6 +198,7 @@ if __name__ == '__main__':
         #             pass
 
         mdf = pd.DataFrame(m_diagn)
+        sys.exit(0)
 
 
 
