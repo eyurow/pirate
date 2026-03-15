@@ -1,7 +1,10 @@
-from generics import DBZ, rrange, get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
-from shapes import generate_circle, generate_thick_circle
-from indices import get_indices_within_bounds
 import numpy as np
+
+from basics.generics import DBZ, rrange, vector_length #get_ref_angle, shift_array, cartesian_to_theta, theta_to_cartesian, calc_normal_carts_to_position, vector_length
+from basics.shapes import generate_circle, generate_thick_circle
+from basics.indices import get_indices_within_bounds
+from basics.arrays import calc_normal_carts_to_position
+
 
 
 def generate_index(start, direction, length, width = 1):
@@ -35,8 +38,6 @@ def generate_index(start, direction, length, width = 1):
                 y_ind.append(int( start[1] + d ))
     
     return np.array([np.array(x_ind), np.array(y_ind)], dtype = int)
-
-
 class Wind:
     def __init__(self, location, strength, direction = None, xy = None, x = None, y = None): # add size and strength per size unit?
         self.location = location
@@ -59,17 +60,12 @@ class Wind:
     
     def world_points(self):
         # return array of points on world array where this object exists
-        pass
-
-            
-                
+        pass          
 def calc_bresenham_params(x, y):
     if abs(x) >= abs(y):
         return abs(x), abs(y), DBZ(abs(x), x, 0), DBZ(abs(y), y, 0), 'x' # dom size, non dom size, dom step, non-dom step, orientation
     else:
         return abs(y), abs(x), DBZ(abs(y), y, 0), DBZ(abs(x), x, 0), 'y'
-           
-            
 class WindGroup:
     def __init__(self, start, dimensions, strength, direction = None, xy = None, x = None, y = None, duration = -1, movement = 0, decay = False):
         self.start = start # tuple e.g. 0,10
@@ -126,9 +122,7 @@ class WindGroup:
                 elif self.orientation == 'y':
                     self.index[0] = self.index[0] + self.nd_step
             
-            self.error -= self.nd_size * self.movement
-                
-                
+            self.error -= self.nd_size * self.movement             
 class WindIndex:
     def __init__(self):
         pass
@@ -241,9 +235,9 @@ class World:
         self.LAND = np.zeros((2,land_size), dtype = int) # x, y indices
         self.SEA = []
         
-        self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .1
-        self.WIND_LOSS_FACTOR = .01
+        self.WIND_STRESS_FACTOR = .03 
+        self.CURRENT_LOSS_FACTOR = .07 #changed to .1
+        self.WIND_LOSS_FACTOR = .2 #changed to .01
         self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
         self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
 
@@ -282,7 +276,7 @@ class World:
     
     def CALC_STANDARD_STRENGTH_UNIT(self):
         # Current strength magnitude needed to cross 1/10th the vertical diameter with strength of 1 remaining
-        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - self.WIND_LOSS_FACTOR)**(self.SIZE[1]/10)
+        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - .2)**(self.SIZE[1]/10)
         
 
     def CALC_ROTATIONAL_FORCES(self):
@@ -404,7 +398,7 @@ class World:
             lbound = ref_angle + self.CORNER_BOUND_THETA
         return rbound, lbound
     
-    def get_prop_index_steps(self, ref_angle):
+    def get_prop_index_steps(self, ref_angle): # TODO: change to (cos(ref_angle), -sin(ref_angle))
         if ref_angle == np.pi/2:
             return (0,-1)
         elif ref_angle == np.pi/4:
