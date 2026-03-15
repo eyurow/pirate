@@ -70,6 +70,13 @@ class XYDiagram(Rectangle):
 
         self._ship = ship
 
+    def generate(self, pos, size):
+        super().generate(pos, size)
+        self.x_min = self.pa_pos[0]; self.x_max = self.pa_pos[0] + self.size[0]
+        self.y_min = self.pa_pos[1]; self.y_max = self.pa_pos[1] + self.size[1]
+        self.mid_x = self.x_min + ( (self.x_max - self.x_min) // 2); self.mid_y = self.y_min + ( (self.y_max - self.y_min) // 2) # for preplaced PixelIndexes
+
+
 
     def generate_static(self):
         ship = self.generate_ship()

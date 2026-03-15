@@ -64,7 +64,7 @@ def xy_diagram(ship, size = 'small'):
     return x_range, y_range, rotate
 
 
-def zx_diagram(ship, size, zx_class):
+def zx_diagram(ship, size, zx_class = None):
     if size == 'small':
         radius = 50
         thick = 2

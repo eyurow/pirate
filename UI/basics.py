@@ -7,10 +7,38 @@ from basics.generics import get_margin
 
 
 class Context:
-    def __init__(self, owner):
+    def __init__(self, owner, run_func):
         self.owner = owner
-        self.button_context = PositionContext(owner)
-        self.hover_context = PositionContext(owner)
+        self.run_func = run_func
+
+        self.button_context = PositionContext(owner) # for UI Buttons
+        self.hover_context = PositionContext(owner) # mouse hover
+        self.key_context = KeyContext(owner) # keyboard keys
+        self.lmb_context = PositionContext(owner)
+        self.rmb_context = PositionContext(owner)
+        self.event_context = KeyContext(owner) # pygame special events (QUIT, RESIZE)
+
+    def store_base(self):
+        self.button_context.store_base()
+        self.hover_context.store_base()
+        self.key_context.store_base()
+        self.lmb_context.store_base()
+        self.rmb_context.store_base()
+        self.event_context.store_base()
+    def restore_base(self):
+        self.button_context.restore_base()
+        self.hover_context.restore_base()
+        self.key_context.restore_base()
+        self.lmb_context.restore_base()
+        self.rmb_context.restore_base()
+        self.event_context.restore_base()
+
+    def check_input(self, event):
+        if event.type in [pygame.QUIT, pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
+            self.event_context.check(inp)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.lmb_context.check(event)
+        
 
 class BaseContext:
     def __init__(self, owner):
@@ -37,6 +65,7 @@ class BaseContext:
         self.map = self.base.copy()
         self.key_idx = self.base_idx
         self.active = []
+
     
         
 
@@ -66,6 +95,19 @@ class PositionContext: # For button and hover maps
         self.key_idx = self.base_idx
         self.active = []
 
+    def register_func(self, pos, size, func):
+        add = np.zeros((5, 1), dtype = int)
+        add[0] = pos[0]
+        add[1] = pos[1]
+        add[2] = pos[0] + size[0]
+        add[3] = pos[1] + size[1]
+        add[4] = self.key_idx
+
+        self.map = np.concatenate([add, self.map], axis = 1)
+        self.key[self.key_idx] = func
+
+        self.key_idx += 1
+
     def register_component(self, component):
         # add top-left (idx 0,1) and bottom-right (2,3) corners of rectangle (button, dropdown) and id (4)
         # Most recently registered component at front of list
@@ -83,47 +125,42 @@ class PositionContext: # For button and hover maps
 
         self.key_idx += 1
 
+    def register_null(self, func):
+        self.null = func
+
+    def overlay(self, context):
+        self.map = context.map
+        self.key_idx = context.key_index
+
 class KeyContext:
     def __init__(self, owner):
         self.owner = owner
         self.reset()
 
     def __str__(self):
-        return f"map: {self.map}, base: {self.base}, key: {self.key}, idx: {self.key_idx}, active: {self.active}"
+        return f"map: {self.map}, base: {self.base}, active: {self.active}"
         
     def reset(self):
-        self.map = np.zeros((2,0), dtype = object) # top-left (idx 0,1) and bottom-right (2,3) corner of component and component id (4)
-        self.base = np.zeros((2,0), dtype = int) # base layer of map - to be recovered when overlays deactivate
-        self.key = {}
-        self.key_idx = 0
-        self.base_idx = 0
+        self.map = {} # key: function
+        self.base = {}
         self.active = []
 
     def store_base(self):
         self.base = self.map.copy()
-        self.base_idx = self.key_idx
 
     def restore_base(self):
         self.map = self.base.copy()
-        self.key_idx = self.base_idx
         self.active = []
 
-    def register_component(self, component):
-        # add top-left (0,1) and bottom-right (2,3) corners of rectangle (button, dropdown) and key (4)
-        # Most recently registered component at top of list
+    def register(self, key, func):
+        self.map[key] = func
 
-        add = np.zeros((5, 1), dtype = int)
-        add[0] = self.owner.pos[0] + component.pos[0]
-        add[1] = self.owner.pos[1] + component.pos[1]
-        add[2] = self.owner.pos[0] + component.pos[0] + component.size[0]
-        add[3] = self.owner.pos[1] + component.pos[1] + component.size[1]
-        add[4] = self.key_idx
+    def register_null(self, func):
+        self.null = func
 
-        self.map = np.concatenate([add, self.map], axis = 1)
-        self.key[self.key_idx] = component
-        component.register_context(self.key_idx)
+    def overlay(self, context):
+        self.map = context.map
 
-        self.key_idx += 1
 
 
 
@@ -139,6 +176,10 @@ class Rectangle:
         else:
             self.pa_pos = (self.pos[0], self.pos[1])
         # self.generate()
+
+    @property
+    def renderer(self):
+        return self.owner.renderer
 
     def generate(self, pos = None, size = None):
         # self.size = new_size

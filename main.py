@@ -1,3 +1,6 @@
+# multiprocesssing/sharing numpy arrays - https://research.wmz.ninja/articles/2018/03/on-sharing-large-arrays-when-using-pythons-multiprocessing.html
+
+
 import numpy as np
 import json
 import psutil
@@ -8,6 +11,8 @@ import traceback
 import pygame
 import pygame.surfarray as sa
 pygame.font.init()
+
+from parameters import UI_SETTINGS
 
 from renderer.renderer import Renderer
 from input_handler.input_handler import InputHandler
@@ -72,21 +77,22 @@ m_diagn = {} # memory diagnostics
 def run():
 
     pygame.init()
-    # WORLD = World((500,300), 16) # 100,60
-    # WORLD.INIT_PHYSICAL_WORLD()
-    # with open('200x200_v1.json', 'r') as f:
-    #     WORLD.LAND = np.array(json.load(f), dtype = int)
-    # WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
-    #                               (WORLD.LAND[0] >= 0)&
-    #                               (WORLD.LAND[1] < WORLD.SIZE[1])&
-    #                               (WORLD.LAND[1] >= 0)]
+
+    WORLD = World((500,300), 16) # 100,60
+    WORLD.INIT_PHYSICAL_WORLD()
+    with open('200x200_v1.json', 'r') as f:
+        WORLD.LAND = np.array(json.load(f), dtype = int)
+    WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
+                                  (WORLD.LAND[0] >= 0)&
+                                  (WORLD.LAND[1] < WORLD.SIZE[1])&
+                                  (WORLD.LAND[1] >= 0)]
 
 
     ## TEST WORLD    
-    WORLD = World((500,300), 0)
-    # WORLD.INIT_EMPTY_WORLD()
-    WORLD.DISTANCE_FROM_SUN = np.zeros(WORLD.SIZE)
-    WORLD.SUN = (0,0)
+    # WORLD = World((500,300), 0)
+    # # WORLD.INIT_EMPTY_WORLD()
+    # WORLD.DISTANCE_FROM_SUN = np.zeros(WORLD.SIZE)
+    # WORLD.SUN = (0,0)
     
 
     SHIP = Ship(world = WORLD, position = (100,150), heading = -np.pi/4 - .4)
@@ -99,8 +105,11 @@ def run():
     UI = UserInterface(WORLD, SHIP)
     RENDERER = Renderer(SCREEN, UI, WORLD, CELL_SIZE, SHIP)
     INP_HANDLER = InputHandler(SCREEN, RENDERER, UI, WORLD, SHIP)
+    UI.generate_components(UI_SETTINGS)
+
 
     RUN = True
+    SIM = True
 
     count = 0
     
@@ -115,14 +124,14 @@ def run():
     # print(WORLD.STANDARD_CURRENT_STRENGTH_LEVEL)
     while RUN:
         print('______________________________________________')
-        # WORLD.sim()
-        WORLD.test_sim()
+        WORLD.sim()
+        # WORLD.test_sim()
         particles.sim_particles()
         SHIP.sim(diagnostics)
         times['Sim'] += clock.tick_busy_loop() / 1000
 
-        WORLD.WINDS[90:150,100:200,0] = -20
-        WORLD.WINDS[90:150,100:200,1] = -20
+        # WORLD.WINDS[90:150,100:200,0] = -20
+        # WORLD.WINDS[90:150,100:200,1] = -20
 
         # diagnostics.append({'WINDS': WORLD.WINDS[int(ship.position[0]), int(ship.position[1])],
         #                     'CURRENTS': WORLD.CURRENTS[int(ship.position[0]), int(ship.position[1])],
@@ -131,17 +140,17 @@ def run():
 
         direction = INP_HANDLER.handle()
         if direction == 'quit':
+            RUN = False
             SCREEN.close()
             break
         times['Handle'] += clock.tick_busy_loop() / 1000
 
         RENDERER.draw_world()
-        RENDERER.draw_particles(particles)
+        # RENDERER.draw_particles(particles)
         RENDERER.draw_ship(SHIP)
-        # SHIP.heading = np.cos(count/100)
-        # SHIP.heeling_angle = 0
-        RENDERER.XYDiagram.generate_abs()
-        RENDERER.XYDiagram.draw(RENDERER)# RENDERER.draw_xy_diagram()
+        
+        RENDERER.ui.XYDiagram.generate_abs()
+        RENDERER.ui.XYDiagram.draw(RENDERER)# RENDERER.draw_xy_diagram()
         RENDERER.draw_zx_diagram()
         RENDERER.draw_ship_xy_diagram(SHIP)
         RENDERER.draw_ship_zy_diagram(SHIP)
@@ -156,6 +165,7 @@ def run():
 
         
         count += 1
+        print(count)
 
         # if count == 1000:
         #     RENDERER.DRAW = fill_color_sun

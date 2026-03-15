@@ -8,17 +8,26 @@ from renderer.drawing_funcs.world import *
 class EscapeMenu(Rectangle):
     def __init__(self, pos, owner, size = (1000,550), color = (166,93,7), border_color = (0,0,0), font = pygame.font.SysFont('chicago', size = 30)):
         super().__init__(pos, size, color, border_color, owner)
-        self.context = Context(self)    
+        self.context = Context(self, self.owner.input_handler.wait_for_input)    
         self.font = font
         size = self.font.render('Display View Display ***', 0, (0,0,0)).get_size()
         self.button_size = (size[0], round(size[1] * (1 + .25)))
         
         self.view_button = ViewButton('Display View', (30,20), self.button_size, font = self.font, color = (150,150,150), border_color = (0,0,0), owner = self) # position given relative to menu
-        # self.resize() # TODO: rename as generate
+        self.generate()
 
     @property
     def bcontext(self):
         return self.context.button_context
+    @property
+    def key_context(self):
+        return self.context.key_context
+    @property
+    def event_context(self):
+        return self.context.event_context
+    @property
+    def renderer(self):
+        return self.owner.renderer
 
     def generate(self, **kwargs):
         super().generate(**kwargs)
@@ -27,6 +36,12 @@ class EscapeMenu(Rectangle):
         self.generate_buttons() # TODO: resize/position buttons
         self.bcontext.register_component(self.view_button)
         self.bcontext.store_base()
+
+        self.key_context.register(pygame.K_ESCAPE, self.owner.close_escape_menu)
+
+        self.event_context.register(pygame.QUIT, self.owner.input_handler.quit)
+        self.event_context.register(pygame.VIDEORESIZE, self.owner.input_handler.resize)
+        self.event_context.register(pygame.VIDEOEXPOSE, self.owner.input_handler.resize)
 
     def refresh_base(self):
         # remove overlays from context/screen
@@ -76,7 +91,6 @@ class ViewButton(Button):
         self.generate_dropdown()
 
     def generate_dropdown(self):
-        # OPTION 2 - scrap buttons; directly add dropdown context to ESC-MENU with pseudobuttons (only have press method)
         self.orig_view_butt.generate()
         self.light_view_butt.generate()
         self.sun_view_butt.generate()

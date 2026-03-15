@@ -235,9 +235,9 @@ class World:
         self.LAND = np.zeros((2,land_size), dtype = int) # x, y indices
         self.SEA = []
         
-        self.WIND_STRESS_FACTOR = .03
-        self.CURRENT_LOSS_FACTOR = .1
-        self.WIND_LOSS_FACTOR = .01
+        self.WIND_STRESS_FACTOR = .03 
+        self.CURRENT_LOSS_FACTOR = .07 #changed to .1
+        self.WIND_LOSS_FACTOR = .2 #changed to .01
         self.INNER_BOUND_THETA = np.pi/16 # angle from vector angle whicn forms bound of its impact arc
         self.CORNER_BOUND_THETA = np.pi/8 # angle from which bounds of impact to corners are calculated
 
@@ -276,7 +276,7 @@ class World:
     
     def CALC_STANDARD_STRENGTH_UNIT(self):
         # Current strength magnitude needed to cross 1/10th the vertical diameter with strength of 1 remaining
-        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - self.WIND_LOSS_FACTOR)**(self.SIZE[1]/10)
+        self.STANDARD_CURRENT_STRENGTH_LEVEL = 1 / (1 - .2)**(self.SIZE[1]/10)
         
 
     def CALC_ROTATIONAL_FORCES(self):
@@ -398,7 +398,7 @@ class World:
             lbound = ref_angle + self.CORNER_BOUND_THETA
         return rbound, lbound
     
-    def get_prop_index_steps(self, ref_angle):
+    def get_prop_index_steps(self, ref_angle): # TODO: change to (cos(ref_angle), -sin(ref_angle))
         if ref_angle == np.pi/2:
             return (0,-1)
         elif ref_angle == np.pi/4:

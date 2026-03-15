@@ -5,93 +5,10 @@ from renderer.drawing_funcs.world import *
 from UI.basics import Context
 
 
-def wait_for_input(mouse_movement = False):
-    waiting = True
-    while waiting:
-        event = pygame.event.wait()
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN):
-            return 'quit'
-        
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-            return True
-        
-        elif event.type in [pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
-            return 'resize'
-        # elif event.type == pygame.VIDEOEXPOSE:
-        #     return 'resize'
-            
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_w:
-            return 'text'
-            
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_f:
-            return 'fill'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
-            return 'light'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
-            return 'sun'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
-            return 'sun2'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return 'ind'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return 'red'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
-            return 'blue'
-        
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            print(f'DOWN: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEMOTION and mouse_movement:
-            print(f'MOVE: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            print(f'UP: {event}')
-            return 0
 
 
-def receive_inputs(mouse_movement = False):
-    events = pygame.event.get()
-    for event in events:
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN):
-            return 'quit'
-        
-        elif event.type == pygame.VIDEORESIZE:
-            return 'resize'
-        elif event.type == pygame.VIDEOEXPOSE:
-            return 'resize'
-        
-        
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            return 'escape menu'
-        
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_w:
-            return 'text'
-            
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_f:
-            return 'fill'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_l:
-            return 'light'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
-            return 'sun'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
-            return 'sun2'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_i:
-            return 'ind'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            return 'red'
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
-            return 'blue'
-        
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            print(f'DOWN: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEMOTION and mouse_movement:
-            print(f'MOVE: {event}')
-            return event.pos
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            print(f'UP: {event}')
-            return 0
-        
+
+
 
 class InputHandler:
     def __init__(self, screen, renderer, ui, world = None, ship = None):
@@ -103,21 +20,84 @@ class InputHandler:
         self.world = world
         self.ship = ship
 
-        self.context = 'run'
-        self.live_context = Context(self)
-        self.queue = []
+        self.context = 'run' # TODO: rename to gamestate?
+        
         self.mouse_movement = False
         self.lmb_mode = False
         self.rmb_mode = False
         self.add_land = []
-        self.pa_pos = (0,0)
+        self.pa_pos = (-self.renderer.START_PIXEL_X,-self.renderer.START_PIXEL_Y)
+
+        ## Main Running Context
+        self.live_context = Context(self, self.receive_inputs)
+
+        self.key_context.register(pygame.K_ESCAPE, self.ui.open_escape_menu)
+        self.key_context.register(pygame.K_SPACE, self.ui.pause)
+
+        self.event_context.register(pygame.QUIT, self.quit)
+        self.event_context.register(pygame.VIDEORESIZE, self.resize)
+        self.event_context.register(pygame.VIDEOEXPOSE, self.resize)
+
+        self.rmb_context.register_null(self.generate_info_box)
+
+        self.lmb_context.register_null(self.add_land) # TODO: make add_land a func
+
+        self.live_context.store_base()
+
+        self._context = self.live_context
+
+    @property
+    def key_context(self):
+        return self.live_context.key_context
+    @property
+    def button_context(self):
+        return self.live_context.button_context
+    @property
+    def event_context(self):
+        return self.live_context.event_context
+    @property
+    def lmb_context(self):
+        return self.live_context.lmb_context
+    @property
+    def rmb_context(self):
+        return self.live_context.rmb_context
 
     @property
     def ESC_MENU(self):
-        return self.renderer.ESC_MENU
+        return self.ui.ESC_MENU
     @property
     def info_box(self):
-        return self.renderer.info_box
+        return self.ui.info_box
+    
+    @staticmethod
+    def receive_inputs():
+        events = pygame.event.get()
+        # mouse_press = pygame.mouse.get_pressed()
+        return events.pop(0)
+        return events, mouse_press
+    @staticmethod
+    def wait_for_input():
+        event = pygame.event.wait()
+        mouse_press = pygame.mouse.get_pressed()
+        return event, mouse_press
+    
+    def context_handle(self, context):
+        events = []
+        mouse_press = []
+
+        if pygame.event.peek(pygame.QUIT):
+            self.event_context[pygame.QUIT]()
+        if pygame.event.peek([pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]):
+            self.event_context[pygame.VIDEORESIZE]()
+
+        events = pygame.event.get()
+        mouse_press = pygame.mouse.get_pressed()
+        handling = True
+
+        while handling:
+            event = self._context.direction() # default - receive_inputs'
+
+        return 1
         
 
     def generate_info_box(self, pos):
@@ -170,12 +150,12 @@ class InputHandler:
             if same_pos_size == 0 and modified_pos not in self.add_land:
                 self.add_land.append(modified_pos)
             self.lmb_mode = 'add land'
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.lmb_mode == 'add land':
             add_land_array = np.array(self.add_land).T // self.renderer.CELL_SIZE
             self.world.LAND = np.concatenate([self.world.LAND, add_land_array], axis = 1) #, dtype = int)
             self.lmb_mode = False
 
-    def end_handle(self, mouse_press):
+    def end_handle(self, mouse_press): # to capture continued pressing of keys
         if mouse_press[2] == 1: # and self.rmb_mode == 'info':
             self.generate_info_box(pygame.mouse.get_pos())
         
@@ -277,4 +257,5 @@ class InputHandler:
     def resize(self):
         self.renderer.refresh_PA()
         self.renderer.set_pixelarray()
-        self.ESC_MENU.generate(pos = ((self.renderer.PA_SIZE[0] - 1000)//2, (self.renderer.PA_SIZE[1] - 550)//2))      
+        # TODO: UI.resize()
+        # self.ESC_MENU.generate(pos = ((self.renderer.PA_SIZE[0] - 1000)//2, (self.renderer.PA_SIZE[1] - 550)//2))      

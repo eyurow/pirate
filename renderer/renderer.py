@@ -31,10 +31,10 @@ class Renderer:
         self.set_pixelarray()
 
         ## UI Elements
-        self.ESC_MENU = EscapeMenu(owner = self, pos = ((self.PA_SIZE[0] - 1000)//2, (self.PA_SIZE[1] - 550)//2))
-        self.info_box = InfoBox(owner = self)
-        self.XYDiagram = XYDiagram(owner = self, pos = (self.PA_SIZE[0] - 130 - 10, self.PA_SIZE[1] - 130 - 10), size = 'small', ship = ship)
-        self.ZYDiagram = ZYDiagram(owner = self, pos = (self.PA_SIZE[0] - 260 - 20, self.PA_SIZE[1] - 130 - 10), size = 'small', color = (0,0,0), ship = ship)
+        # self.ESC_MENU = EscapeMenu(owner = self, pos = ((self.PA_SIZE[0] - 1000)//2, (self.PA_SIZE[1] - 550)//2))
+        # self.info_box = InfoBox(owner = self)
+        # self.XYDiagram = XYDiagram(owner = self, pos = (self.PA_SIZE[0] - 130 - 10, self.PA_SIZE[1] - 130 - 10), size = 'small', ship = ship)
+        # self.ZYDiagram = ZYDiagram(owner = self, pos = (self.PA_SIZE[0] - 260 - 20, self.PA_SIZE[1] - 130 - 10), size = 'small', color = (0,0,0), ship = ship)
 
 
     def __getitem__(self, index):
@@ -135,10 +135,10 @@ class Renderer:
     def draw_rectangle(self, rect):
         self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.color
 
-        # self.PA[rect.pa_pos[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
-        # self.PA[rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
-        # self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]] = rect.border_color
-        # self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        self.PA[rect.pa_pos[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        self.PA[rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]:rect.pa_pos[1] + rect.size[1]] = rect.border_color
+        self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1]] = rect.border_color
+        self.PA[rect.pa_pos[0]:rect.pa_pos[0] + rect.size[0], rect.pa_pos[1] + rect.size[1]] = rect.border_color
 
     def draw_index_array(self, array, color = (0,0,0)):
         self.PA[(array[0], array[1])] = color
@@ -151,14 +151,14 @@ class Renderer:
                 pos[1]:pos[1] + texture.shape[1]] = texture.color
         
     def draw_xy_diagram(self):
-        self.XYDiagram.generate_abs()
-        self.draw_rectangle(self.XYDiagram)
-        self.draw_index_array(self.XYDiagram.pixel_index, self.XYDiagram.text_color)
+        self.ui.XYDiagram.generate_abs()
+        self.draw_rectangle(self.ui.XYDiagram)
+        self.draw_index_array(self.ui.XYDiagram.pixel_index, self.ui.XYDiagram.text_color)
     
     def draw_zx_diagram(self):
-        self.ZYDiagram.generate_index()
-        self.draw_rectangle(self.ZYDiagram)
-        self.draw_index_array(self.ZYDiagram.pixel_index, self.ZYDiagram.text_color)
+        self.ui.ZYDiagram.generate_index()
+        self.draw_rectangle(self.ui.ZYDiagram)
+        self.draw_index_array(self.ui.ZYDiagram.pixel_index, self.ui.ZYDiagram.text_color)
 
 
     def draw_button(self, button, menu_pos = (0,0)):
@@ -199,7 +199,7 @@ class Renderer:
         self.PA[adjusted] = (50,150,175)
 
     def draw_ship_zy_diagram(self, ship):
-        x_range, y_range, zx_diag = zx_diagram(ship, 'small',  self.ZYDiagram.static_index)
+        x_range, y_range, zx_diag = zx_diagram(ship, 'small')
         start_x = 10#x_range[0] + self.PA_SIZE[0] - (x_range[1] * 2) - (10 * 2) # two diagrams from bottom right corner, 10 pix buffer
         start_y = y_range[0] + self.PA_SIZE[1] - y_range[1] - 10
 
