@@ -73,7 +73,7 @@ class ViewButton(Button):
         self.sun_view_butt = SunViewButton('Sun', (pos[0]+20, pos[1] + self.size[1]*3), (size[0]-10, size[1]), color, text_color, border_color, font, owner = owner, context_type = 'overlay')
         self.drama_view_butt = DramaViewButton('Dramatic', (pos[0]+20, pos[1] + self.size[1]*4), (size[0]-10, size[1]), color, text_color, border_color, font, owner = owner, context_type = 'overlay')
 
-    def press(self, handler):
+    def press(self):
         # open dropdown
         if self not in self.context.active: # if not self.pressed:
             self.context.active.append(self)
@@ -105,28 +105,28 @@ class OrigViewButton(Button):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
     # def generate(self):
     #     super().generate()
-    def press(self, handler):
+    def press(self):
         self.owner.owner.set_draw(pa_fill_color)
         self.owner.refresh_base()
 
 class LightViewButton(Button):
     def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
-    def press(self, handler):
+    def press(self):
         self.owner.owner.set_draw(fill_color_light)
         self.owner.refresh_base()
 
 class SunViewButton(Button):
     def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
-    def press(self, handler):
+    def press(self):
         self.owner.owner.set_draw(fill_color_sun)
         self.owner.refresh_base()
 
 class DramaViewButton(Button):
     def __init__(self, text, pos, size, color = None, text_color = (0,0,0), border_color = None, font = None, owner = None, context_type = 'overlay'):
         super().__init__(text, pos, size, color, border_color, owner, text_color, font, context_type)
-    def press(self, handler):
+    def press(self):
         self.owner.owner.set_draw(fill_ind_colors)
         self.owner.refresh_base()
 

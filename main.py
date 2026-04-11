@@ -22,6 +22,12 @@ from ships import Ship
 
 
 
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    print('running in a PyInstaller bundle')
+else:
+    print('running in a normal Python process')
+
+
 np.set_printoptions(precision = 1, threshold = 1600, suppress = True)
 
 

@@ -20,7 +20,7 @@ class InputHandler:
         self.world = world
         self.ship = ship
 
-        self.context = 'run' # TODO: rename to gamestate?
+        self.state = 'run' # 
         
         self.mouse_movement = False
         self.lmb_mode = False
@@ -29,7 +29,7 @@ class InputHandler:
         self.pa_pos = (-self.renderer.START_PIXEL_X,-self.renderer.START_PIXEL_Y)
 
         ## Main Running Context
-        self.live_context = Context(self, self.receive_input)
+        self.live_context = Context(self, self.receive_inputs)
 
         self.key_context.register(pygame.K_ESCAPE, self.ui.open_escape_menu)
         self.key_context.register(pygame.K_SPACE, self.ui.pause)
@@ -38,7 +38,7 @@ class InputHandler:
         self.event_context.register(pygame.VIDEORESIZE, self.resize)
         self.event_context.register(pygame.VIDEOEXPOSE, self.resize)
 
-        self.rmb_context.register_null(self.generate_info_box)
+        self.rmb_context.register_null(self.generate_info_box) # TODO: add register_null method
 
         self.lmb_context.register_null(self.add_land) # TODO: make add_land a func
 
@@ -68,33 +68,35 @@ class InputHandler:
     @property
     def info_box(self):
         return self.ui.info_box
-    
 
-    def receive_input(self):
-        event = self.event_queue.pop(0)
-        return events, mouse_press
-    def wait_for_input():
+
+
+
+
+    def receive_inputs(self):
+        try:
+            event = self.event_queue.pop(0)
+            self._context.check(event, self.mouse_press)
+            self._context.direction()
+        except IndexError:
+            return False # receiving False
+
+    def wait_for_input(self):
         event = pygame.event.wait()
-        mouse_press = pygame.mouse.get_pressed()
-        return event, mouse_press
+        self._context.check(event, self.mouse_press)
+        self._context.direction()
     
     def context_handle(self, context):
-        event_queue = pygame.event.get()
-        mouse_press = pygame.mouse.get_pressed()
+        self.event_queue = pygame.event.get()
+        self.mouse_press = pygame.mouse.get_pressed()
 
         if pygame.event.peek(pygame.QUIT):
             self.event_context[pygame.QUIT]()
         if pygame.event.peek([pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]):
             self.event_context[pygame.VIDEORESIZE]()
 
-        # events = pygame.event.get()
-        # mouse_press = pygame.mouse.get_pressed()
-        handling = True
+        self._context.direction() # default - receive_inputs'
 
-        while handling:
-            event = self._context.direction() # default - receive_inputs'
-
-        return 1
         
 
     def generate_info_box(self, pos):

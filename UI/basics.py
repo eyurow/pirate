@@ -9,7 +9,7 @@ from basics.generics import get_margin
 class Context:
     def __init__(self, owner, run_func):
         self.owner = owner
-        self.run_func = run_func
+        self.direction = run_func
 
         self.button_context = PositionContext(owner) # for UI Buttons
         self.hover_context = PositionContext(owner) # mouse hover
@@ -33,11 +33,15 @@ class Context:
         self.rmb_context.restore_base()
         self.event_context.restore_base()
 
-    def check_input(self, event):
+    def check(self, event):
         if event.type in [pygame.QUIT, pygame.VIDEORESIZE, pygame.VIDEOEXPOSE]:
-            self.event_context.check(inp)
+            self.event_context.check(event)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.lmb_context.check(event)
+            self.lmb_context.check(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
+            self.rmb_context.check(event.pos)
+        elif event.type == pygame.KEYDOWN:
+            self.key_context.check(event.key)
         
 
 class BaseContext:
@@ -120,7 +124,7 @@ class PositionContext: # For button and hover maps
         add[4] = self.key_idx
 
         self.map = np.concatenate([add, self.map], axis = 1)
-        self.key[self.key_idx] = component
+        self.key[self.key_idx] = component.press()
         component.register_context(self.key_idx)
 
         self.key_idx += 1
@@ -131,6 +135,14 @@ class PositionContext: # For button and hover maps
     def overlay(self, context):
         self.map = context.map
         self.key_idx = context.key_index
+
+    def check(self, position):
+        pos = (position[0] - self.owner.renderer.START_PIXEL_X, position[1] - self.owner.renderer.START_PIXEL_Y)
+        check = self.map[4, (self.map[0] <= pos[0])&(self.map[1] <= pos[1])&(self.map[2] >= pos[0])&(self.map[3] >= pos[1])] # return any buttons on context map where click was within button borders
+        try:
+            self.key[check[0]]
+        except IndexError:
+            self.null
 
 class KeyContext:
     def __init__(self, owner):
@@ -161,6 +173,11 @@ class KeyContext:
     def overlay(self, context):
         self.map = context.map
 
+    def check(self, key):
+        try:
+            self.map[key]
+        except KeyError:
+            self.null
 
 
 
