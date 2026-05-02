@@ -6,7 +6,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('200x200_v1.json', '.'), ('land1.json', '.')],
+    datas=[('200x200_v1.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

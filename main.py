@@ -1,6 +1,7 @@
 # multiprocesssing/sharing numpy arrays - https://research.wmz.ninja/articles/2018/03/on-sharing-large-arrays-when-using-pythons-multiprocessing.html
 
 
+
 import numpy as np
 import json
 import psutil
@@ -22,10 +23,14 @@ from ships import Ship
 
 
 
+
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     print('running in a PyInstaller bundle')
+    DATA_PATH = sys._MEIPASS
 else:
     print('running in a normal Python process')
+    DATA_PATH = ''
+    
 
 
 np.set_printoptions(precision = 1, threshold = 1600, suppress = True)
@@ -53,7 +58,7 @@ class Screen:
 
 def live_world():
     world = World((500,300), 16) # 100,60
-    with open('200x200_v1.json', 'r') as f:
+    with open(os.path.join(DATA_PATH, '200x200_v1.json'), 'r') as f:
         world.LAND = np.array(json.load(f), dtype = int)
     world.LAND = world.LAND[:, (world.LAND[0] < world.SIZE[0])&
                                     (world.LAND[0] >= 0)&
@@ -86,7 +91,7 @@ def run():
 
     WORLD = World((500,300), 16) # 100,60
     WORLD.INIT_PHYSICAL_WORLD()
-    with open('200x200_v1.json', 'r') as f:
+    with open(os.path.join(DATA_PATH, '200x200_v1.json'), 'r') as f:
         WORLD.LAND = np.array(json.load(f), dtype = int)
     WORLD.LAND = WORLD.LAND[:, (WORLD.LAND[0] < WORLD.SIZE[0])&
                                   (WORLD.LAND[0] >= 0)&
